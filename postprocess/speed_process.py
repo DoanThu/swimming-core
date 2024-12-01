@@ -65,6 +65,8 @@ class SpeedProcess:
                     
                     count_marker_ = y1-y0
                     self.red_marker = filter_red(lane_image).shape[0]>1
+                    all_markers_count.append(count_marker_)
+
                     # if count_marker_ != -1: # == -1  when it is likely not a lane divider 
                         # all_markers_count.append(count_marker_)
             
@@ -85,6 +87,8 @@ class SpeedProcess:
                     
                     count_marker_ = x1-x0
                     self.red_marker = filter_red(lane_image).shape[0]>1
+                    all_markers_count.append(count_marker_)
+
                     # if count_marker_ != -1: # == -1  when it is likely not a lane divider, or simply cannot count
                         # all_markers_count.append(count_marker_)
         
