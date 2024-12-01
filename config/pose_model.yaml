@@ -1,0 +1,16 @@
+# video_path: 'videos_multiple/DJI_0941 (W200FL Teoh Ning Ern Finals).MP4' 
+# swimmer_position: 
+#   x: 480
+#   y: 50
+
+# video_path: 'videos_multiple/DJI_0962 (M50FR Darren Chua Finals).MP4' 
+# swimmer_position: 
+  # x: 450
+  # y: 520
+model_path: 'models/pose_26aug_1080.pt'
+
+# params for inference 
+inference:
+  imgsz: 1088
+  iou: 0.5 
+  verbose: False

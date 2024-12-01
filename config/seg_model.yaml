@@ -1,0 +1,9 @@
+model_path: 'models/best_159_11l_1088_patience50.pt'
+freq: 0.5 # second, frequency for calling the model
+
+# params for inference 
+inference:
+  verbose: False
+  imgsz: 1280
+  iou: 0.5
+

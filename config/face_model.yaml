@@ -1,0 +1,6 @@
+model_path: 'models/yolov8l-face.pt'
+
+# params for inference 
+inference:
+  verbose: False
+  max_det: 1000
