@@ -32,6 +32,9 @@ def read_yaml(filename: str) -> dict:
             raise Exception(exc)
 
 def write_to_csv(data, filename):
+    """
+    If the folders not exist create ones and append data to csv file.
+    """
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
     with open(filename, 'a') as file:

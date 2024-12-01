@@ -31,7 +31,15 @@ def is_valid_skeletons(skeletons:torch.Tensor) -> bool:
     ])
     return np.all(arr)
 
-def get_valid_skeletons(skeletons:torch.Tensor) -> bool:
+def get_valid_skeletons(skeletons:torch.Tensor) -> list:
+    """Return valid skeletons from skeletons list 
+
+    Args:
+        skeletons (torch.Tensor): shape = (N, 17, 2)
+
+    Returns:
+        list: list of valid skeletons shae = (N, 17, 2)
+    """
     arr = np.array([
         is_valid_skeleton(skeleton) for skeleton in torch.unbind(skeletons, dim=0)
     ])

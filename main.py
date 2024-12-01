@@ -108,7 +108,7 @@ def run(debug=False, save_json=False, save_csv=False, out_video='output.mp4', fx
                         frame_data.bbox = swimmer_tracker.bbox
                         frame_data.bbox_area = swimmer_tracker.bbox_area.item()
                         
-                        # get face (can be optimised)
+                        # TODO: get face (can be optimised)
                         # face_bboxes = face_caller.get_face(frame, **face_config['inference'])
                         # face_bbox = stroke_process.match_face(frame_data.skeleton, face_bboxes)
                         # frame_data.face_up = face_bbox != None
@@ -118,7 +118,6 @@ def run(debug=False, save_json=False, save_csv=False, out_video='output.mp4', fx
                         if frame_idx % (2*(int(fps*seg_config['freq']))) == 0: # do the following every seg_config['freq']*2 second(s)
                             lane_divider_process.set_lane_divider_info(frame, seg_caller, **seg_config['inference'])
                             frame_data.frame_orientation = lane_divider_process.orientation
-                            # unit_size = lane_divider_process.unit_size
 
                         # get skeleton direction
                         frame_data.direction = direction_process.get_skeleton_direction(frame_data.skeleton)
@@ -127,16 +126,10 @@ def run(debug=False, save_json=False, save_csv=False, out_video='output.mp4', fx
                         frame_data.status = status_process.get_status(frame_data.skeleton, frame_data, frame_data_list,
                                                                     previous_interval=fps*3)
                         
-                        # get frame direction
-                        # if (frame_data.direction == FrameDataConst.UP or frame_data.direction == FrameDataConst.DOWN) and (frame_data.status == FrameDataConst.READY):
-                            # frame_data.frame_orientation = FrameDataConst.VERTICAL
-                        # elif (frame_data.direction == FrameDataConst.LEFT or frame_data.direction == FrameDataConst.RIGHT) and (frame_data.status == FrameDataConst.READY):
-                            # frame_data.frame_orientation = FrameDataConst.HORIZONTAL
-                        
-                        # classify stroke
+                        # TODO: classify stroke
                         # frame_data.stroke = stroke_process.classify_stroke(frame_data, frame_data_list)
                         
-                        # fix left right swap
+                        # TODO: fix left right swap
                         # frame_data.skeleton = side_process.get_correct_side(frame_data.skeleton, frame_data)
                         
                         # get lane segmentation based on the head
@@ -170,7 +163,7 @@ def run(debug=False, save_json=False, save_csv=False, out_video='output.mp4', fx
                         logging.info(f'Saved json file to {filename}')
                 else:
                     if debug:
-                        logging.debug('>>>>> {} seconds have passed'.format(SAVE_AFTER_FRAMES/fps))
+                        logging.debug('>>>>> {} seconds elapsed'.format(SAVE_AFTER_FRAMES/fps))
                     
             if save_csv:
                 data = str(frame_data.red_marker) + ',' + str(frame_data.direction) + ',' + str(frame_data.speed) + ',' + ','.join(str(p) for p in frame_data.skeleton)
