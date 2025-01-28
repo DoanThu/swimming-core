@@ -44,3 +44,19 @@ def get_valid_skeletons(skeletons:torch.Tensor) -> list:
         is_valid_skeleton(skeleton) for skeleton in torch.unbind(skeletons, dim=0)
     ])
     return skeletons[arr]
+
+def get_bbox_area(xmin, ymin, xmax, ymax) -> float:
+    return (xmax-xmin)*(ymax-ymin)
+            
+def get_bbox(points:torch.Tensor) -> torch.Tensor:
+    """Get bounding box of the skeleton
+
+    Args:
+        points (torch.Tensor): shape = (17, 2)
+
+    Returns:
+        torch.Tensor: return bbox
+    """
+    xmin, ymin = points.min(axis=0).values
+    xmax, ymax = points.max(axis=0).values
+    return torch.Tensor([xmin, ymin, xmax, ymax])
