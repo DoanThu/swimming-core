@@ -12,15 +12,6 @@ def image_to_redis(r,a,n):
    r.set(n,encoded)
    return
 
-def image_from_redis(r,n):
-        """Retrieve Numpy array from Redis key 'n'"""
-        encoded = r.get(n)
-        h, w = struct.unpack('>II',encoded[:8])
-        a = np.frombuffer(encoded, dtype=np.uint8, offset=8).reshape(h,w,3)
-        return a
-
-def dict_to_redis(conn,data,key):
-      conn.hmset(key, data)
 
 def json_to_redis(conn, data, key):
       conn.set(key, data)
