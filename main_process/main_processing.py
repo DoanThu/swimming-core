@@ -102,9 +102,9 @@ class MainCalculation:
                 # print(frame_data.skeleton)
                 frame_data.direction = direction_process.get_skeleton_direction(frame_data.skeleton)
                 
-                # detect status
-                frame_data.status = status_process.get_status(frame_data.skeleton, frame_data, self.frame_data_list,
-                                                            previous_interval=self.fps*3)
+                # TODO: detect status
+                # frame_data.status = status_process.get_status(frame_data.skeleton, frame_data, self.frame_data_list,
+                                                            # previous_interval=self.fps*3)
                 
                 # TODO: classify stroke
                 # frame_data.stroke = stroke_process.classify_stroke(frame_data, frame_data_list)
@@ -113,7 +113,9 @@ class MainCalculation:
                 # frame_data.skeleton = side_process.get_correct_side(frame_data.skeleton, frame_data)
                 
                 # get lane segmentation based on the head
-                if frame_idx % (int(self.fps*seg_config['freq'])) == 0: # do the following every seg_config['freq'] second(s)
+                
+                # if frame_idx % (int(self.fps*seg_config['freq'])) == 0: # do the following every seg_config['freq'] second(s)
+                if frame_idx % seg_config['freq_frame_idx'] == 0: # do the following every seg_config['freq'] second(s)
                     lanes_segmentation = anchor_process.segment_lane_dividers(frame, frame_data, 
                                                                             seg_caller, **seg_config['inference'])
                     anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
@@ -133,7 +135,6 @@ class MainCalculation:
         frame_data.bbox = [_coord.item() for _coord in frame_data.bbox]
         # append current frame to list
         self.frame_data_list.append(frame_data)
-        
 
         annotated_frame = draw_keypoints(frame, frame_data.skeleton)
         annotated_frame = draw_segmentation(annotated_frame, lanes_segmentation)
@@ -141,7 +142,6 @@ class MainCalculation:
         if debug:
             texts = frame_data.__str__()
             annotated_frame = write_texts(frame, texts, 30, org=(30,30))
-
 
         
         for k,v in anchor_process.anchor_list.items():

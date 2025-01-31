@@ -1,11 +1,14 @@
-from config.general import MODE, SAVE_AFTER_SECONDS, SAVE_JSON_PATH, SAVE_CSV_PATH, VIDEO_PATH, DEVICE_ID, SAVE_VIDEO_PATH
+from config.general import MODE, SAVE_AFTER_SECONDS, SAVE_JSON_PATH, SAVE_CSV_PATH, VIDEO_PATH, DEVICE_ID, SAVE_VIDEO_PATH, DEFAULT_REDIS_HOST, DEFAULT_REDIS_PORT, FPS_RATE
 import cv2 
-from utils.file_utils import write_to_csv
+from utils.file_utils import write_to_csv, write_json
 from postprocess.data import FrameData
 from typing import List
 from main_process.main_processing import MainCalculation
 import os
 import sys
+import redis
+import json
+from db_process.redis_process import image_to_redis, frame_data_to_redis
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
@@ -67,10 +70,14 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
 
 
 def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1):
+    # Connect to Redis
+    r = redis.Redis(host=DEFAULT_REDIS_HOST, port=DEFAULT_REDIS_PORT, db=0)
+
+
     cap = cv2.VideoCapture(DEVICE_ID)
     frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
-    frame_idx = 0
+    frame_idx = -1
     output = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*'MP4V'),
                              fps, (frame_width, frame_height))
     
@@ -79,6 +86,9 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
     if save_csv:
         if os.path.exists(SAVE_CSV_PATH):
             os.remove(SAVE_CSV_PATH)
+
+    if not os.path.exists(os.path.dirname(out_video)):
+        os.makedirs(os.path.dirname(out_video))
     
     calculate_frame = MainCalculation(fps)
     
@@ -86,17 +96,22 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
         try:
             ret, frame = cap.read()
             if ret:
-                out_frame, frame_data = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                 frame_idx += 1
+                if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
+                        logging.debug('>>>>> {} seconds elapsed'.format(SAVE_AFTER_SECONDS))
+                if frame_idx % FPS_RATE != 0: 
+                    continue
+                   
+
+                annotated_frame, frame_data = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                 
                 # save SAVE_AFTER_SECONDS frames in json format
-                if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
-                    if save_json:
-                        filename = SAVE_JSON_PATH.format(frame_idx//(SAVE_AFTER_SECONDS*fps))
-                        save_json([_frame.__dict__ for _frame in frame_data_list[frame_idx-(SAVE_AFTER_SECONDS*fps):]], filename)
-                        logging.info(f'Saved json file to {filename}')
-                    else:
-                        logging.debug('>>>>> {} seconds elapsed'.format(SAVE_AFTER_SECONDS))
+                # if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
+                    # if save_json:
+                        # filename = SAVE_JSON_PATH.format(frame_idx//(SAVE_AFTER_SECONDS*fps))
+                        # write_json([_frame.__dict__ for _frame in frame_data_list[frame_idx-(SAVE_AFTER_SECONDS*fps):]], filename)
+                        # logging.info(f'Saved json file to {filename}')
+                        
                         
                 if save_csv:
                     data = str(frame_data.red_marker) + ',' + str(frame_data.direction) + ',' + str(frame_data.speed) + ',' + ','.join(str(p) for p in frame_data.skeleton)
@@ -104,7 +119,12 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
                 
                 if out_video:
-                    output.write(out_frame)
+                    output.write(annotated_frame)
+                
+                image_to_redis(r, frame, 'raw_image')
+                image_to_redis(r, annotated_frame, 'annotated_image')
+                frame_data_to_redis(r, frame_data, 'frame_data')
+
                 
             else:
                 if save_csv:

@@ -2,9 +2,8 @@ import json
 import os
 from typing import List
 import yaml
-import csv
 
-def save_json(data: List[str], filename:str):
+def write_json(data: List[str], filename:str):
     """ Save list of json object to filename. Create folders to filename if they do not exist.
 
     Args:
