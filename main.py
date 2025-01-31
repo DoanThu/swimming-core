@@ -79,7 +79,7 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     frame_idx = -1
     output = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*'MP4V'),
-                             fps, (frame_width, frame_height))
+                             fps//FPS_RATE, (frame_width, frame_height))
     
     logging.info(f'frame_width={frame_width}, frame_height={frame_width}, fps = {fps}')
 
