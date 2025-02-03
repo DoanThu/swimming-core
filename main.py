@@ -7,8 +7,8 @@ from main_process.main_processing import MainCalculation
 import os
 import sys
 import redis
-import json
-from db_process.redis_process import image_to_redis, frame_data_to_redis
+from postprocess.analytics import ExtractParams
+from db_process.redis_process import image_to_redis, frame_data_to_redis, dict_to_redis
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
@@ -92,6 +92,7 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
     
     calculate_frame = MainCalculation(fps)
     
+    extractParams = ExtractParams()
     while cap.isOpened():
         try:
             ret, frame = cap.read()
@@ -124,6 +125,14 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                 image_to_redis(r, frame, 'raw_image')
                 image_to_redis(r, annotated_frame, 'annotated_image')
                 frame_data_to_redis(r, frame_data, 'frame_data')
+
+                extractParams.extract_distance_features(frame_data.skeleton)
+                extractParams.extract_angle_features(frame_data.skeleton)
+                extractParams.extract_pct_change()
+                if extractParams.pct_dist_changes:
+                    dict_to_redis(r,extractParams.pct_dist_changes,'pct_dist_changes')
+                if extractParams.pct_angle_changes:
+                    dict_to_redis(r,extractParams.pct_angle_changes,'pct_angle_changes')
 
                 
             else:
