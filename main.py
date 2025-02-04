@@ -126,9 +126,18 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                 image_to_redis(r, annotated_frame, 'annotated_image')
                 frame_data_to_redis(r, frame_data, 'frame_data')
 
+                if not frame_data.skeleton: continue
+
                 extractParams.extract_distance_features(frame_data.skeleton)
                 extractParams.extract_angle_features(frame_data.skeleton)
                 extractParams.extract_pct_change()
+
+                dist_feature_list = ['nose_lwrist', 'nose_rwrist', 'lwrist_rwrist']
+                dict_to_redis(r, {feature:extractParams.cur_dist_features[feature] for feature in dist_feature_list}, 'cur_dist_features')
+
+                angle_feature_list = ['nose_lhip_rhip']
+                dict_to_redis(r, {feature:extractParams.cur_angle_features[feature] for feature in angle_feature_list}, 'cur_angle_features')
+
                 if extractParams.pct_dist_changes:
                     dict_to_redis(r,extractParams.pct_dist_changes,'pct_dist_changes')
                 if extractParams.pct_angle_changes:

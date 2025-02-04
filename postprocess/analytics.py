@@ -25,6 +25,7 @@ class ExtractParams:
 
     def extract_distance_features(self, skeleton):
         # skeleton is a 3-level nested loop
+        if not skeleton: return
         final_res = {}
         for i in range(self.n_landmarks):
             for j in range(i+1,self.n_landmarks):
@@ -40,6 +41,7 @@ class ExtractParams:
     
     def extract_angle_features(self, skeleton):
         # skeleton is a 3-level nested loop
+        if not skeleton: return
         final_res = {}
         for i in range(self.n_landmarks):
             for j in range(i+1,self.n_landmarks):
