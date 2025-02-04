@@ -4,6 +4,7 @@ from model_caller.face_model_caller import FaceCallerYOLO
 from model_caller.seg_model_caller import SegCallerYOLO
 import torch 
 import cv2 
+import time
 from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot
 from utils.file_utils import read_yaml
 from utils.skeleton_utils import get_valid_skeletons, get_bbox, get_bbox_area
@@ -22,39 +23,40 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
-frame_data_list: List[FrameData] = []
-
-pose_config = read_yaml(POSE_CONFIG)
-face_config = read_yaml(FACE_CONFIG)
-seg_config = read_yaml(SEG_CONFIG)
-
-pose_caller = PoseCallerYOLO(pose_config['model_path'])
-face_caller = FaceCallerYOLO(face_config['model_path'])
-seg_caller = SegCallerYOLO(seg_config['model_path'])
-
-stroke_process = StrokeProcess()
-status_process = StatusProcess()
-side_process = SideProcess()
-direction_process = DirectionProcess()
-speed_process = SpeedProcess()
-anchor_process = AnchorProcess(window=120)
-lane_divider_process = LaneDivider()
-
-RANDOM_COLORS = np.random.randint(0, 255, (100, 3))
-
 class MainCalculation:
     def __init__(self, fps:int, fx:float=1.0, fy:float=1.0):
-        if torch.cuda.is_available():
-            logging.info('CUDA is available. Loading pose model from ' + pose_config['model_path'])
-            logging.info('CUDA is available. Loading face model from ' + face_config['model_path'])
-            logging.info('CUDA is available. Loading segmentation model from ' + seg_config['model_path'])
-        else:
-            logging.info('CUDA is not available. Using CPU instead.')
-
         self.fps = fps
         self.fx = fx 
         self.fy = fy
         self.frame_data_list: List[FrameData] = []
+
+        self.RANDOM_COLORS = np.random.randint(0, 255, (100, 3))
+
+        self.stroke_process = StrokeProcess()
+        self.status_process = StatusProcess()
+        self.side_process = SideProcess()
+        self.direction_process = DirectionProcess()
+        self.speed_process = SpeedProcess()
+        self.anchor_process = AnchorProcess(window=120)
+        self.lane_divider_process = LaneDivider()
+
+        self.frame_data_list: List[FrameData] = []
+
+        self.pose_config = read_yaml(POSE_CONFIG)
+        self.face_config = read_yaml(FACE_CONFIG)
+        self.seg_config = read_yaml(SEG_CONFIG)
+
+        self.pose_caller = PoseCallerYOLO(self.pose_config['model_path'])
+        self.face_caller = FaceCallerYOLO(self.face_config['model_path'])
+        self.seg_caller = SegCallerYOLO(self.seg_config['model_path'])
+
+        if torch.cuda.is_available():
+            logging.info('CUDA is available. Loading pose model from ' + self.pose_config['model_path'])
+            logging.info('CUDA is available. Loading face model from ' + self.face_config['model_path'])
+            logging.info('CUDA is available. Loading segmentation model from ' + self.seg_config['model_path'])
+        else:
+            logging.info('CUDA is not available. Using CPU instead.')
+
 
         
     def swimming_calculation(self, frame:np.array, frame_idx:int, debug:bool=True) -> tuple:
@@ -69,9 +71,10 @@ class MainCalculation:
         
         frame_data.frame_idx = frame_idx
         lanes_segmentation = []
+        # return frame, frame_data
             
         # call models 
-        frame_keypoints = pose_caller.get_keypoint(frame, **pose_config['inference'])
+        frame_keypoints = self.pose_caller.get_keypoint(frame, **self.pose_config['inference'])
         # if nothing detected, its shape is (N,0,51) 
         if frame_keypoints.shape[1] != 0:
             # print(frame_keypoints) 
@@ -94,13 +97,13 @@ class MainCalculation:
                 frame_data.face_up = False
 
                 # get full lane divider for frame direction
-                if frame_idx % (2*(int(self.fps*seg_config['freq']))) == 0: # do the following every seg_config['freq']*2 second(s)
-                    lane_divider_process.set_lane_divider_info(frame, seg_caller, **seg_config['inference'])
-                    frame_data.frame_orientation = lane_divider_process.orientation
+                if frame_idx % (5*self.seg_config['freq_frame_idx']) == 0: # do the following every seg_config frames
+                    self.lane_divider_process.set_lane_divider_info(frame, self.seg_caller, **self.seg_config['inference'])
+                    frame_data.frame_orientation = self.lane_divider_process.orientation
 
                 # get skeleton direction
                 # print(frame_data.skeleton)
-                frame_data.direction = direction_process.get_skeleton_direction(frame_data.skeleton)
+                frame_data.direction = self.direction_process.get_skeleton_direction(frame_data.skeleton)
                 
                 # TODO: detect status
                 # frame_data.status = status_process.get_status(frame_data.skeleton, frame_data, self.frame_data_list,
@@ -113,21 +116,26 @@ class MainCalculation:
                 # frame_data.skeleton = side_process.get_correct_side(frame_data.skeleton, frame_data)
                 
                 # get lane segmentation based on the head
+
                 
-                # if frame_idx % (int(self.fps*seg_config['freq'])) == 0: # do the following every seg_config['freq'] second(s)
-                if frame_idx % seg_config['freq_frame_idx'] == 0: # do the following every seg_config['freq'] second(s)
-                    lanes_segmentation = anchor_process.segment_lane_dividers(frame, frame_data, 
-                                                                            seg_caller, **seg_config['inference'])
-                    anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
+                if frame_idx % self.seg_config['freq_frame_idx'] == 0: # do the following every seg_config['freq'] second(s)
+                    # cur_time = time.time()
+
+                    lanes_segmentation = self.anchor_process.segment_lane_dividers(frame, frame_data, 
+                                                                            self.seg_caller, **self.seg_config['inference'])
+                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
                     # calculate speed
-                    speed_process.calculate_speed(frame, frame_data, anchor_process.anchor_list, lanes_segmentation, unit_size=1) # unit_size=1, counting pixel
-                    frame_data.speed = speed_process.current_speed
-                    frame_data.pct_change = speed_process.pct_change
-                    frame_data.red_marker = speed_process.red_marker
+                    self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list, lanes_segmentation, unit_size=1) # unit_size=1, counting pixel
+                    frame_data.speed = self.speed_process.current_speed
+                    frame_data.pct_change = self.speed_process.pct_change
+                    frame_data.red_marker = self.speed_process.red_marker
+                    # print('if: {}'.format(time.time()-cur_time))
+
                 else:
-                    anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
+                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
                     frame_data.speed = self.frame_data_list[-1].speed
                     frame_data.pct_change = self.frame_data_list[-1].pct_change
+
                         
             
         if torch.is_tensor(frame_data.skeleton):
@@ -144,9 +152,9 @@ class MainCalculation:
             annotated_frame = write_texts(frame, texts, 30, org=(30,30))
 
         
-        for k,v in anchor_process.anchor_list.items():
+        for k,v in self.anchor_process.anchor_list.items():
             annotated_frame = draw_dot(annotated_frame, v, 
-                                        color=RANDOM_COLORS[k%len(RANDOM_COLORS)].tolist(), radius=4)
+                                        color=self.RANDOM_COLORS[k%len(self.RANDOM_COLORS)].tolist(), radius=4)
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
             self.frame_data_list = self.frame_data_list[-SAVE_AFTER_SECONDS*self.fps:]

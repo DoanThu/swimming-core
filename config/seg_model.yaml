@@ -1,10 +1,13 @@
-model_path: 'models/best_159_11l_1088_patience50.pt'
-freq: 0.5 # second, frequency for calling the model
-freq_frame_idx: 30 # call the model every 30 frames
+# model_path: 'models/best_159_11l_1088_patience50.pt'
+model_path: 'models/seg11n-640.pt'
+freq_frame_idx: 30 # call the seg model every 30 frames
 
 # params for inference 
 inference:
   verbose: False
-  imgsz: 1280
+  # imgsz: 1088
+  imgsz: 640
   iou: 0.5
+  half: True
+  max_det: 50
 

@@ -7,6 +7,7 @@ from main_process.main_processing import MainCalculation
 import os
 import sys
 import redis
+import time
 from postprocess.analytics import ExtractParams
 from db_process.redis_process import image_to_redis, frame_data_to_redis, dict_to_redis
 import logging 
@@ -97,9 +98,10 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
         try:
             ret, frame = cap.read()
             if ret:
+                frame = cv2.resize(frame, (0, 0), fx = fx, fy = fy)
                 frame_idx += 1
                 if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
-                        logging.debug('>>>>> {} seconds elapsed'.format(SAVE_AFTER_SECONDS))
+                        logging.debug(f'>>>>> {SAVE_AFTER_SECONDS} seconds elapsed. Current frame idx is {frame_idx}')
                 if frame_idx % FPS_RATE != 0: 
                     continue
                    
@@ -114,9 +116,9 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                         # logging.info(f'Saved json file to {filename}')
                         
                         
-                if save_csv:
-                    data = str(frame_data.red_marker) + ',' + str(frame_data.direction) + ',' + str(frame_data.speed) + ',' + ','.join(str(p) for p in frame_data.skeleton)
-                    write_to_csv(data, SAVE_CSV_PATH)
+                # if save_csv:
+                    # data = str(frame_data.red_marker) + ',' + str(frame_data.direction) + ',' + str(frame_data.speed) + ',' + ','.join(str(p) for p in frame_data.skeleton)
+                    # write_to_csv(data, SAVE_CSV_PATH)
 
                 
                 if out_video:
@@ -135,7 +137,7 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                 dist_feature_list = ['nose_lwrist', 'nose_rwrist', 'lwrist_rwrist']
                 dict_to_redis(r, {feature:extractParams.cur_dist_features[feature] for feature in dist_feature_list}, 'cur_dist_features')
 
-                angle_feature_list = ['nose_lhip_rhip']
+                angle_feature_list = ['lshoulder_lelbow_lwrist', 'rshoulder_relbow_rwrist']
                 dict_to_redis(r, {feature:extractParams.cur_angle_features[feature] for feature in angle_feature_list}, 'cur_angle_features')
 
                 if extractParams.pct_dist_changes:
@@ -169,7 +171,7 @@ if __name__ == '__main__':
     if MODE == 'VIDEO':
         run_video(debug=False, save_json=False, save_csv=True)
     elif MODE == 'STREAMING':
-        run_stream(debug=False, save_json=False, save_csv=True)
+        run_stream(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5)
     
     
    

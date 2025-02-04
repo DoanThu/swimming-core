@@ -21,7 +21,7 @@ class ExtractParams:
         import math
         from math import degrees
         ang = degrees(math.atan2(cy-by, cx-bx) - math.atan2(ay-by, ax-bx))
-        return ang + 360 if ang < 0 else ang
+        return abs(ang)
 
     def extract_distance_features(self, skeleton):
         # skeleton is a 3-level nested loop

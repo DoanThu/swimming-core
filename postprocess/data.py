@@ -1,8 +1,8 @@
 from dataclasses import dataclass, asdict
 from json import dumps
-import numpy as np
 import torch
 from typing import List
+from dataclasses import field
 
 
 @dataclass
@@ -42,7 +42,8 @@ class FrameData(SuperDataClass):
     direction: int = FrameDataConst.UNKNOWN
     status: int = FrameDataConst.READY
     reach_marker: bool = False
-    skeleton: torch.Tensor = torch.Tensor(0, 17, 2)
+    # skeleton: torch.Tensor = torch.Tensor(0, 17, 2)
+    skeleton: list = field(default_factory=list)
     bbox: torch.Tensor = torch.Tensor(0, 4) # xmin, ymin, xmax, ymax
     bbox_area: float = FrameDataConst.UNKNOWN
     stroke: int = FrameDataConst.UNKNOWN
