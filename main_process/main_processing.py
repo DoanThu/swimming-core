@@ -123,7 +123,17 @@ class MainCalculation:
 
                     lanes_segmentation = self.anchor_process.segment_lane_dividers(frame, frame_data, 
                                                                             self.seg_caller, **self.seg_config['inference'])
+                    # generate random points on lane dividers
+                    no_random_points = 20
+                    for segment in lanes_segmentation:
+                        x, y, w, h = cv2.boundingRect(np.array(segment))
+                        random_x = np.random.randint(x, x+w, no_random_points)
+                        random_y = np.random.randint(y, y+h, no_random_points)
+                        self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
+
                     self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
+
+
                     # calculate speed
                     self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list, lanes_segmentation, unit_size=1) # unit_size=1, counting pixel
                     frame_data.speed = self.speed_process.current_speed

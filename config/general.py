@@ -1,4 +1,5 @@
 MODE = 'STREAMING' # MODE is VIDEO or STREAMING
+FPS_RATE = 2 # read every n frames, needs to be a factor of with freq_frame_idx in seg_model.yaml
 
 # Model
 POSE_CONFIG = 'config/pose_model.yaml'
@@ -10,12 +11,11 @@ SAVE_AFTER_SECONDS = 5
 SAVE_JSON_PATH = 'frame_info/interval_{}.json'
 
 # For VIDEO
-FPS_RATE = 2 # read every n frames, needs to be a factor of with freq_frame_idx in seg_model.yaml
-FILENAME = 'DJI_0051.MP4'
+FILENAME = 'DJI_0057.MP4'
 VIDEO_PATH = f'2024Nov28_resized/{FILENAME}' 
 # For STREAMING
 # DEVICE_ID = 0  
-DEVICE_ID = '2024Nov28_resized/DJI_0061.MP4' # Change to video path to debug
+DEVICE_ID = '2024Nov28_resized/DJI_0057.MP4' # Change to video path to debug
 if MODE == 'VIDEO':
     SAVE_CSV_PATH = f'csv_files/{FILENAME.split('.')[0]}.csv'
     SAVE_VIDEO_PATH = f'{FILENAME.split('.')[0]}_output.mp4'
