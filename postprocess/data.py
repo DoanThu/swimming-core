@@ -52,7 +52,7 @@ class FrameData(SuperDataClass):
     # speed info 
     period_index: int = FrameDataConst.UNKNOWN
     speed: float = FrameDataConst.UNKNOWN
-    pct_change: float = FrameDataConst.UNKNOWN
+    speed_pct_change: float = FrameDataConst.UNKNOWN
     red_marker: bool = False
      
     # process info

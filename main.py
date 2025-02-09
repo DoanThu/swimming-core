@@ -8,6 +8,7 @@ import os
 import sys
 import redis
 import time
+from utils.dict_utils import get_first_k
 from postprocess.analytics import ExtractParams
 from db_process.redis_process import image_to_redis, frame_data_to_redis, dict_to_redis
 import logging 
@@ -39,7 +40,7 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
     while cap.isOpened():
         ret, frame = cap.read()
         if ret:
-            out_frame, frame_data = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
+            out_frame, frame_data, _ = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
             frame_idx += 1
             
             # save SAVE_AFTER_SECONDS frames in json format
@@ -92,8 +93,11 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
         os.makedirs(os.path.dirname(out_video))
     
     calculate_frame = MainCalculation(fps)
-    
     extractParams = ExtractParams()
+
+    prev_features_list = []
+    cur_features_list = []
+
     while cap.isOpened():
         try:
             ret, frame = cap.read()
@@ -105,8 +109,8 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                 if frame_idx % FPS_RATE != 0: 
                     continue
                    
-
-                annotated_frame, frame_data = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
+                
+                annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                 
                 # save SAVE_AFTER_SECONDS frames in json format
                 # if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
@@ -114,15 +118,9 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                         # filename = SAVE_JSON_PATH.format(frame_idx//(SAVE_AFTER_SECONDS*fps))
                         # write_json([_frame.__dict__ for _frame in frame_data_list[frame_idx-(SAVE_AFTER_SECONDS*fps):]], filename)
                         # logging.info(f'Saved json file to {filename}')
-                        
-                        
-                # if save_csv:
-                    # data = str(frame_data.red_marker) + ',' + str(frame_data.direction) + ',' + str(frame_data.speed) + ',' + ','.join(str(p) for p in frame_data.skeleton)
-                    # write_to_csv(data, SAVE_CSV_PATH)
 
                 
-                if out_video:
-                    output.write(annotated_frame)
+                
                 
                 image_to_redis(r, frame, 'raw_image')
                 image_to_redis(r, annotated_frame, 'annotated_image')
@@ -130,21 +128,39 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
                 if not frame_data.skeleton: continue
 
-                extractParams.extract_distance_features(frame_data.skeleton)
-                extractParams.extract_angle_features(frame_data.skeleton)
-                extractParams.extract_pct_change()
+                if updated_speed:
+                    if not prev_features_list:
+                        prev_features_list = cur_features_list
+                        cur_features_list = []
+                    else:
+                        d_distances = extractParams.extract_distance_features(frame_data.skeleton)
+                        d_angles = extractParams.extract_angle_features(frame_data.skeleton)
+                        cur_features_list.append([d_distances, d_angles])
+                        extractParams.extract_pct_change_list(prev_features_list, cur_features_list)
 
-                dist_feature_list = ['nose_lwrist', 'nose_rwrist', 'lwrist_rwrist']
-                dict_to_redis(r, {feature:extractParams.cur_dist_features[feature] for feature in dist_feature_list}, 'cur_dist_features')
+                        dist_feature_list = ['nose_lwrist', 'nose_rwrist', 'lwrist_rwrist']
+                        dict_to_redis(r, {feature:extractParams.cur_dist_features[feature] for feature in dist_feature_list}, 'cur_dist_features')
 
-                angle_feature_list = ['lshoulder_lelbow_lwrist', 'rshoulder_relbow_rwrist']
-                dict_to_redis(r, {feature:extractParams.cur_angle_features[feature] for feature in angle_feature_list}, 'cur_angle_features')
+                        angle_feature_list = ['lshoulder_lelbow_lwrist', 'rshoulder_relbow_rwrist']
+                        dict_to_redis(r, {feature:extractParams.cur_angle_features[feature] for feature in angle_feature_list}, 'cur_angle_features')
 
-                if extractParams.pct_dist_changes:
-                    dict_to_redis(r,extractParams.pct_dist_changes,'pct_dist_changes')
-                if extractParams.pct_angle_changes:
-                    dict_to_redis(r,extractParams.pct_angle_changes,'pct_angle_changes')
+                        if extractParams.pct_dist_changes: # not empty
+                            dict_to_redis(r,extractParams.pct_dist_changes,'pct_dist_changes')
+                        if extractParams.pct_angle_changes: # not empty
+                            dict_to_redis(r,extractParams.pct_angle_changes,'pct_angle_changes')
 
+                        if save_csv:
+                            data = str(frame_data.direction) + ',' + str(frame_data.speed) + ',' + str(frame_data.speed_pct_change)+ ',' + str(get_first_k(extractParams.pct_dist_changes, 5)) + ',' + str(get_first_k(extractParams.pct_angle_changes, 5))
+                            write_to_csv(data, SAVE_CSV_PATH)
+                else:
+                    d_distances = extractParams.extract_distance_features(frame_data.skeleton)
+                    d_angles = extractParams.extract_angle_features(frame_data.skeleton)
+                    cur_features_list.append([d_distances, d_angles])
+
+                
+                
+                if out_video:
+                    output.write(annotated_frame)
                 
             else:
                 if save_csv:
@@ -171,7 +187,7 @@ if __name__ == '__main__':
     if MODE == 'VIDEO':
         run_video(debug=False, save_json=False, save_csv=True)
     elif MODE == 'STREAMING':
-        run_stream(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5)
+        run_stream(debug=False, save_json=False, save_csv=True, fx=0.4, fy=0.4)
     
     
    

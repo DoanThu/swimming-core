@@ -60,6 +60,8 @@ class MainCalculation:
 
         
     def swimming_calculation(self, frame:np.array, frame_idx:int, debug:bool=True) -> tuple:
+        updated_speed = False 
+
         frame = cv2.resize(frame, None, fx=self.fx, fy=self.fy)
         frame_data = FrameData()
     
@@ -71,7 +73,6 @@ class MainCalculation:
         
         frame_data.frame_idx = frame_idx
         lanes_segmentation = []
-        # return frame, frame_data
             
         # call models 
         frame_keypoints = self.pose_caller.get_keypoint(frame, **self.pose_config['inference'])
@@ -137,14 +138,16 @@ class MainCalculation:
                     # calculate speed
                     self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list, lanes_segmentation, unit_size=1) # unit_size=1, counting pixel
                     frame_data.speed = self.speed_process.current_speed
-                    frame_data.pct_change = self.speed_process.pct_change
+                    frame_data.speed_pct_change = self.speed_process.pct_change
                     frame_data.red_marker = self.speed_process.red_marker
                     # print('if: {}'.format(time.time()-cur_time))
+
+                    updated_speed = True
 
                 else:
                     self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
                     frame_data.speed = self.frame_data_list[-1].speed
-                    frame_data.pct_change = self.frame_data_list[-1].pct_change
+                    frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
 
                         
             
@@ -169,7 +172,7 @@ class MainCalculation:
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
             self.frame_data_list = self.frame_data_list[-SAVE_AFTER_SECONDS*self.fps:]
             
-        return annotated_frame, frame_data
+        return annotated_frame, frame_data, updated_speed
 
 
     

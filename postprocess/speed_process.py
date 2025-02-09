@@ -99,13 +99,9 @@ class SpeedProcess:
         if self.current_speed == FrameDataConst.UNKNOWN:
             self.current_speed = current_speed
         else:
-            self.pct_change = (current_speed-self.current_speed)/self.current_speed
+            if current_speed < 20 and self.current_speed < 20:
+                self.pct_change = 0
+            else:
+                self.pct_change = (current_speed-self.current_speed)/self.current_speed
             self.current_speed = current_speed
-        # if round(self.current_speed,2) > 800:
-        #     print('>>>> time = {}, {}'.format(times[-1],times[i]))
-        #     print('>>>> all_markers_count = {}'.format(all_markers_count))
-        #     print(f'>>>> current_speed = {self.current_speed}')
-        #     print(f'>>>> pct_change = {self.pct_change}')
-        #     print(f'>>>> marker_size_pixel = {self.marker_size_pixel}')
-        #     print(anchor_list)
-        #     raise
+

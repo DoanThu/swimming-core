@@ -17,7 +17,7 @@ def json_to_redis(conn, data, key):
       conn.set(key, data)
 
 def frame_data_to_redis(conn, frame_data, key):
-    d = {'speed': frame_data.speed, 'pct_change': frame_data.pct_change}
+    d = {'speed': frame_data.speed, 'pct_change': frame_data.speed_pct_change}
     json_to_redis(conn, json.dumps(d), key)
 
 def dict_to_redis(conn, d, key, limit=5):
