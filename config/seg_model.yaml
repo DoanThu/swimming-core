@@ -5,7 +5,6 @@ freq_frame_idx: 30 # call the seg model every 30 frames
 # params for inference 
 inference:
   verbose: False
-  # imgsz: 1088
   imgsz: 640
   iou: 0.5
   half: True
