@@ -10,9 +10,9 @@ from main_process.streaming_process import run_stream
 if __name__ == '__main__':
     logging.info(f'RUNNING IN {MODE} MODE' + '---'*5)
     if MODE == 'VIDEO':
-        run_video(debug=True, save_json=False, save_csv=True, fx=0.5, fy=0.5)
+        run_video(debug=True, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='detection') # needs rewrite
     elif MODE == 'STREAMING':
-        run_stream(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5)
+        run_stream(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='detection')
     
     
    

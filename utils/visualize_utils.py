@@ -110,6 +110,18 @@ def draw_segmentation(image:np.ndarray, list_segments: list,
     return image
 
 
+def draw_detection(image:np.ndarray, list_boxes: list,
+                      color:tuple=(0,255,0), thickness:int=1) -> np.ndarray:
+
+    for x,y,w,h in list_boxes:
+        x,y,w,h = int(x), int(y), int(w), int(h)
+        start_point = (x,y)
+        end_point = (x+w, y+h)
+
+        image = cv2.rectangle(image, start_point, end_point, color, thickness)
+    return image
+
+
 def draw_dot(image:np.ndarray, dots:np.ndarray,
              radius=2, color=(0,0,255), thickness=-1) -> np.ndarray:
     """ Draw multiple dots on image

@@ -56,7 +56,7 @@ class AnchorProcess:
 
         return lane_dividers
 
-    def optical_flow_anchors(self, frame: np.ndarray):
+    def update_optical_flow_anchors(self, frame: np.ndarray):
         """ Update previous anchor points using optical flow. 
         Also remove updated points that are out-of-sight along the way.
 
@@ -143,7 +143,7 @@ class AnchorProcess:
             
             
     def update_anchor_points(self, frame_idx: int, frame: np.ndarray, frame_data: FrameData,
-                             lane_dividers: list):
+                             lane_dividers: list, divider_type: str = 'segment'):
         """ First, update previous anchor points using optical flow.
         Then, add new points if there are new intersection points with the lane dividers.
         Keep the anchor points as they are, if lane divider list is empty or there are not new intersection points found.
@@ -159,32 +159,9 @@ class AnchorProcess:
         # shape for anchors must be (N, 1, 2)
         # note the np.float32 too
 
-        def get_intersection_line_segments(a: np.ndarray, b: np.ndarray,
-                                           c: np.ndarray, d: np.ndarray) -> np.ndarray:
-            """ Find the intersection point of 2 line segments. Line 1 is from point a and b. Line 2 is from point c and d.
-
-            Args:
-                a (np.ndarray): 2D coordinate of point
-                b (np.ndarray): 2D coordinate of point
-                c (np.ndarray): 2D coordinate of point
-                d (np.ndarray): 2D coordinate of point
-
-            Returns:
-                np.ndarray: 2D coordinate of point
-            """
-            from shapely.geometry import LineString
-            line1 = LineString([a, b])
-            line2 = LineString([c, d])
-
-            int_pt = line1.intersection(line2)
-
-            if int_pt.is_empty or isinstance(int_pt, LineString):
-                return np.array([])
-            return np.array([int_pt.x, int_pt.y])
-
         # Updated previous anchors 
         # And remove out-of-sight anchors in anchor list (negative coordinates)
-        self.optical_flow_anchors(frame)
+        self.update_optical_flow_anchors(frame)
         
 
         # Remove anchors that are beyond time window
@@ -208,28 +185,23 @@ class AnchorProcess:
             if frame_data.frame_orientation == FrameDataConst.VERTICAL and frame_data.direction in [FrameDataConst.UP, FrameDataConst.DOWN]:  # vertical frame
                 reference_y = head_coord[1]  # y coord
                 for divider in lane_dividers:
-                    temp = []
-                    for i in range(0, len(divider)):
-                        intersection = get_intersection_line_segments(
-                            divider[i], divider[i-1], (0, reference_y), (frame.shape[1], reference_y))
-                        
-                        if intersection.shape[0] != 0:
-                            temp.append(intersection)
-                    temp = np.unique(temp, axis=0)
-                    new_anchors.extend(temp)
+                    if divider_type == 'segment':
+                        x, y, w, h = cv2.boundingRect(divider)
+                    else:
+                        x, y, w, h = divider
+                    # if y <= reference_y <= y+h:
+                    new_anchors.extend([[x, reference_y], [x+w, reference_y]])
                         
             elif frame_data.frame_orientation == FrameDataConst.HORIZONTAL and frame_data.direction in [FrameDataConst.LEFT, FrameDataConst.RIGHT]:  # horizontal frame
                 reference_x = head_coord[0]  # x coord
                 for divider in lane_dividers:
-                    temp = []
-                    for i in range(0, len(divider)):
-                        intersection = get_intersection_line_segments(
-                            divider[i], divider[i-1], (reference_x, 0), (reference_x, frame.shape[0]))
-                        if intersection.shape[0] != 0:
-                            temp.append(intersection)
-                    temp = np.unique(temp, axis=0)
-                    new_anchors.extend(temp)
-                 
+                    if divider_type == 'segment':
+                        x, y, w, h = cv2.boundingRect(divider)
+                    else:
+                        x, y, w, h = divider
+                    # if x <= reference_x <= x+w:
+                    new_anchors.extend([[reference_x, y], [reference_x, y+h]])
+
             if len(new_anchors) == 0:
                 return
             self.anchor_list[frame_idx] = np.array(new_anchors, np.float32)

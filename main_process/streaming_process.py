@@ -29,7 +29,7 @@ def redis_visualization(r, d_distances, d_angles):
 
 
 
-def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1):
+def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1, lane_type='segment'):
     # Connect to Redis
     r = redis.Redis(host=DEFAULT_REDIS_HOST, port=DEFAULT_REDIS_PORT, db=0)
 
@@ -54,7 +54,7 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
     
     
-    calculate_frame = MainCalculation(fps)
+    calculate_frame = MainCalculation(fps, lane_type=lane_type)
     extractParams = ExtractParams()
 
     prev_features_list = []
@@ -81,6 +81,7 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                 if not frame_data.skeleton: continue
 
                 if updated_speed:
+                    # Find factors impact speed change
                     if not prev_features_list:
                         prev_features_list = cur_features_list
                         cur_features_list = []
@@ -104,11 +105,17 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                         if save_csv:
                             data =  second_to_time_str(frame_idx/(fps//FPS_RATE)) + ',' + str(frame_data.speed) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
                             write_to_csv(data, SAVE_CSV_PATH)
+
+                        prev_features_list = cur_features_list
+                        cur_features_list = []
+                    
+
                 else:
                     d_distances = extractParams.extract_distance_features(frame_data.skeleton)
                     d_angles = extractParams.extract_angle_features(frame_data.skeleton)
                     cur_features_list.append([d_distances, d_angles])
                     redis_visualization(r, d_distances, d_angles)
+
 
 
                 

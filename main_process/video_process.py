@@ -17,7 +17,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
 
 frame_data_list: List[FrameData] = []
 
-def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1):
+def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1, lane_type='segment'):
     cap = cv2.VideoCapture(VIDEO_PATH)
     frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
     fps = int(cap.get(cv2.CAP_PROP_FPS))

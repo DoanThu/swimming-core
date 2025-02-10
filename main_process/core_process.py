@@ -1,14 +1,15 @@
-from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT
+from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT
 from model_caller.pose_model_caller import PoseCallerYOLO
 from model_caller.face_model_caller import FaceCallerYOLO
 from model_caller.seg_model_caller import SegCallerYOLO
+from model_caller.detection_model_caller import DetectionCallerYOLO
 import torch 
 import cv2 
 import time
-from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot
+from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot, draw_detection
 from utils.file_utils import read_yaml
 from utils.skeleton_utils import get_valid_skeletons, get_bbox, get_bbox_area
-from postprocess.data import FrameData
+from postprocess.data import FrameData, FrameDataConst
 from postprocess.stroke_process import StrokeProcess
 from postprocess.status_process import StatusProcess
 from postprocess.side_process import SideProcess
@@ -24,10 +25,11 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 class MainCalculation:
-    def __init__(self, fps:int, fx:float=1.0, fy:float=1.0):
+    def __init__(self, fps:int, fx:float=1.0, fy:float=1.0, lane_type='segment'):
         self.fps = fps
         self.fx = fx 
         self.fy = fy
+        self.lane_type = lane_type
         self.frame_data_list: List[FrameData] = []
 
         self.RANDOM_COLORS = np.random.randint(0, 255, (100, 3))
@@ -45,15 +47,18 @@ class MainCalculation:
         self.pose_config = read_yaml(POSE_CONFIG)
         self.face_config = read_yaml(FACE_CONFIG)
         self.seg_config = read_yaml(SEG_CONFIG)
+        self.detection_config = read_yaml(DETECT_CONFIG)
 
         self.pose_caller = PoseCallerYOLO(self.pose_config['model_path'])
         self.face_caller = FaceCallerYOLO(self.face_config['model_path'])
         self.seg_caller = SegCallerYOLO(self.seg_config['model_path'])
+        self.detect_caller = DetectionCallerYOLO(self.detection_config['model_path'])
 
         if torch.cuda.is_available():
             logging.info('CUDA is available. Loading pose model from ' + self.pose_config['model_path'])
             logging.info('CUDA is available. Loading face model from ' + self.face_config['model_path'])
             logging.info('CUDA is available. Loading segmentation model from ' + self.seg_config['model_path'])
+            logging.info('CUDA is available. Loading detection model from ' + self.detection_config['model_path'])
         else:
             logging.info('CUDA is not available. Using CPU instead.')
 
@@ -73,6 +78,7 @@ class MainCalculation:
         
         frame_data.frame_idx = frame_idx
         lanes_segmentation = []
+        lane_divider_bboxes = []
             
         # call models 
         frame_keypoints = self.pose_caller.get_keypoint(frame, **self.pose_config['inference'])
@@ -99,8 +105,13 @@ class MainCalculation:
 
                 # get full lane divider for frame direction
                 if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every seg_config frames
-                    self.lane_divider_process.set_lane_divider_info(frame, self.seg_caller, **self.seg_config['inference'])
-                    frame_data.frame_orientation = self.lane_divider_process.orientation
+                    if self.lane_type == 'segment':
+                        self.lane_divider_process.set_lane_divider_info(frame, self.seg_caller, **self.seg_config['inference'])
+                        frame_data.frame_orientation = self.lane_divider_process.orientation
+                    elif self.lane_type == 'detection':
+                        lane_divider_bboxes = self.detect_caller.detect_lane_dividers(frame, **self.detection_config['inference'])
+                        direction = sum([1 if w > h else -1 for _,_,w,h in lane_divider_bboxes])
+                        frame_data.frame_orientation = FrameDataConst.HORIZONTAL if direction > 0 else FrameDataConst.VERTICAL
 
                 # get skeleton direction
                 # print(frame_data.skeleton)
@@ -118,30 +129,50 @@ class MainCalculation:
                 
                 # get lane segmentation based on the head
 
-                if frame_idx % FREQ_SEGMENT == 0: # do the following every seg_config['freq'] second(s)
-                    lanes_segmentation = self.anchor_process.segment_lane_dividers(frame, frame_data, 
-                                                                            self.seg_caller, **self.seg_config['inference'])
-                    # generate random points on lane dividers
-                    for segment in lanes_segmentation:
-                        x, y, w, h = cv2.boundingRect(np.array(segment))
-                        random_x = np.random.randint(x, x+w, NO_POINTS_SEGMENTATION)
-                        random_y = np.random.randint(y, y+h, NO_POINTS_SEGMENTATION)
-                        self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
+                if frame_idx % FREQ_SEGMENT == 0: # do the following every FREQ_SEGMENT frames
+                    if self.lane_type == 'segment':
+                        lanes_segmentation = self.anchor_process.segment_lane_dividers(frame, frame_data, self.seg_caller, **self.seg_config['inference'])
 
-                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
+                        # generate random points on lane dividers
+                        for segment in lanes_segmentation:
+                            x, y, w, h = cv2.boundingRect(np.array(segment))
+                            random_x = np.random.randint(x, x+w, NO_POINTS_SEGMENTATION)
+                            random_y = np.random.randint(y, y+h, NO_POINTS_SEGMENTATION)
+                            self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
+                        self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation, divider_type=self.lane_type)
+                    else:
+                        if len(lane_divider_bboxes) == 0:
+                            lane_divider_bboxes = self.detect_caller.detect_lane_dividers(frame, **self.detection_config['inference'])
+                        for x,y,w,h in lane_divider_bboxes:
+                            # x,y,w,h = lane_divider_bbox.cpu().numpy()
+                            if frame_data.frame_orientation == FrameDataConst.HORIZONTAL:
+                                random_x = np.random.randint(0, frame.shape[1], NO_POINTS_SEGMENTATION)
+                                random_y = np.random.randint(y, y+h, NO_POINTS_SEGMENTATION)
+                            else:
+                                random_x = np.random.randint(x, x+w, NO_POINTS_SEGMENTATION)
+                                random_y = np.random.randint(0, frame.shape[0], NO_POINTS_SEGMENTATION)
+                            self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
+
+                        self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lane_divider_bboxes, divider_type=self.lane_type)
 
 
                     # calculate speed
-                    self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list, lanes_segmentation, unit_size=1) # unit_size=1, counting pixel
+                    if self.lane_type == 'segment':
+                        self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
+                                                            lanes_segmentation, lane_type=self.lane_type, unit_size=1) # unit_size=1, counting pixel
+                    else: 
+                        self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
+                                                        lane_divider_bboxes, lane_type=self.lane_type, unit_size=1) # unit_size=1, counting pixel
                     frame_data.speed = self.speed_process.current_speed
                     frame_data.speed_pct_change = self.speed_process.pct_change
                     frame_data.red_marker = self.speed_process.red_marker
                     updated_speed = True
 
                 else:
-                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation)
+                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, [])
                     frame_data.speed = self.frame_data_list[-1].speed
                     frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
+
 
                         
             
@@ -151,8 +182,12 @@ class MainCalculation:
         # append current frame to list
         self.frame_data_list.append(frame_data)
 
+        annotated_frame = frame.copy()
         annotated_frame = draw_keypoints(frame, frame_data.skeleton)
-        annotated_frame = draw_segmentation(annotated_frame, lanes_segmentation)
+        if self.lane_type == 'segment':
+            annotated_frame = draw_segmentation(annotated_frame, lanes_segmentation)
+        else:
+            annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes)
 
         if debug:
             texts = frame_data.__str__()
