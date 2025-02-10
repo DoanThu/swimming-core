@@ -1,16 +1,27 @@
 import struct
 import numpy as np
 import json
+import cv2
+import time
 
 def image_to_redis(r,a,n):
-   """Store given Numpy array 'a' in Redis under key 'n'"""
-   h, w = a.shape[:2]
-   shape = struct.pack('>II',h,w)
-   encoded = shape + a.tobytes()
+    """Store given Numpy array 'a' in Redis under key 'n'"""
+    h, w = a.shape[:2]
+    #    shape = struct.pack('>II',h,w)
+    #    encoded = shape + a.tobytes()
 
-   # Store encoded data in Redis
-   r.set(n,encoded)
-   return
+    start = time.time()
+    (flag, encoded_img) = cv2.imencode(".jpg", a)
+    if not flag:
+        return
+
+    encoded_img = encoded_img.tobytes()
+
+    # Store encoded data in Redis
+    r.set(n, encoded_img)
+    end = time.time()
+    # print(f'Elapsed time for image_to_redis: {end-start}')
+    
 
 
 def json_to_redis(conn, data, key):

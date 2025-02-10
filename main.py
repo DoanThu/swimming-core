@@ -8,8 +8,9 @@ from main_process.streaming_process import run_stream
 
 
 if __name__ == '__main__':
+    logging.info(f'RUNNING IN {MODE} MODE' + '---'*5)
     if MODE == 'VIDEO':
-        run_video(debug=True, save_json=False, save_csv=True, fx=1.0, fy=1.0)
+        run_video(debug=True, save_json=False, save_csv=True, fx=0.5, fy=0.5)
     elif MODE == 'STREAMING':
         run_stream(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5)
     

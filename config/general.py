@@ -1,6 +1,8 @@
-MODE = 'VIDEO' # MODE is VIDEO or STREAMING
-# MODE = 'STREAMING'
+# MODE = 'VIDEO' # MODE is VIDEO or STREAMING
+MODE = 'STREAMING'
 FPS_RATE = 2 # read every n frames, needs to be a factor of with freq_frame_idx in seg_model.yaml
+MAP_FPS_RATE_FREQ_SEGMENT = {2: 30, 4:32}
+FREQ_SEGMENT = MAP_FPS_RATE_FREQ_SEGMENT[FPS_RATE] # call the seg model every n frames
 
 # Model
 POSE_CONFIG = 'config/pose_model.yaml'

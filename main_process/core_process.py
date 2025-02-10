@@ -1,4 +1,4 @@
-from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION
+from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT
 from model_caller.pose_model_caller import PoseCallerYOLO
 from model_caller.face_model_caller import FaceCallerYOLO
 from model_caller.seg_model_caller import SegCallerYOLO
@@ -98,7 +98,7 @@ class MainCalculation:
                 frame_data.face_up = False
 
                 # get full lane divider for frame direction
-                if frame_idx % (5*self.seg_config['freq_frame_idx']) == 0: # do the following every seg_config frames
+                if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every seg_config frames
                     self.lane_divider_process.set_lane_divider_info(frame, self.seg_caller, **self.seg_config['inference'])
                     frame_data.frame_orientation = self.lane_divider_process.orientation
 
@@ -118,10 +118,7 @@ class MainCalculation:
                 
                 # get lane segmentation based on the head
 
-                
-                if frame_idx % self.seg_config['freq_frame_idx'] == 0: # do the following every seg_config['freq'] second(s)
-                    # cur_time = time.time()
-
+                if frame_idx % FREQ_SEGMENT == 0: # do the following every seg_config['freq'] second(s)
                     lanes_segmentation = self.anchor_process.segment_lane_dividers(frame, frame_data, 
                                                                             self.seg_caller, **self.seg_config['inference'])
                     # generate random points on lane dividers
@@ -139,8 +136,6 @@ class MainCalculation:
                     frame_data.speed = self.speed_process.current_speed
                     frame_data.speed_pct_change = self.speed_process.pct_change
                     frame_data.red_marker = self.speed_process.red_marker
-                    # print('if: {}'.format(time.time()-cur_time))
-
                     updated_speed = True
 
                 else:
@@ -172,8 +167,4 @@ class MainCalculation:
             self.frame_data_list = self.frame_data_list[-SAVE_AFTER_SECONDS*self.fps:]
             
         return annotated_frame, frame_data, updated_speed
-
-
     
-    
-   

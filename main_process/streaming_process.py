@@ -74,15 +74,6 @@ def run_stream(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                 
                 annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                 
-                # save SAVE_AFTER_SECONDS frames in json format
-                # if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
-                    # if save_json:
-                        # filename = SAVE_JSON_PATH.format(frame_idx//(SAVE_AFTER_SECONDS*fps))
-                        # write_json([_frame.__dict__ for _frame in frame_data_list[frame_idx-(SAVE_AFTER_SECONDS*fps):]], filename)
-                        # logging.info(f'Saved json file to {filename}')
-
-                
-                
                 image_to_redis(r, frame, 'raw_image')
                 image_to_redis(r, annotated_frame, 'annotated_image')
                 frame_data_to_redis(r, frame_data, 'frame_data')
