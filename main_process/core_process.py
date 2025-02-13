@@ -38,7 +38,7 @@ class MainCalculation:
         self.status_process = StatusProcess()
         self.side_process = SideProcess()
         self.direction_process = DirectionProcess()
-        self.speed_process = SpeedProcess()
+        self.speed_process = SpeedProcess(fps=self.fps)
         self.anchor_process = AnchorProcess(window=120)
         self.lane_divider_process = LaneDivider()
 

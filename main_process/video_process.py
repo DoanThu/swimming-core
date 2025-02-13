@@ -17,7 +17,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
 
 frame_data_list: List[FrameData] = []
 
-def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1, lane_type='segment'):
+def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1, lane_type='segmentation'):
     cap = cv2.VideoCapture(VIDEO_PATH)
     frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -38,7 +38,7 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
 
     
     
-    calculate_frame = MainCalculation(fps)
+    calculate_frame = MainCalculation(fps, lane_type=lane_type)
     extractParams = ExtractParams()
 
     prev_features_list = []
@@ -74,6 +74,9 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
                         if save_csv:
                             data =  second_to_time_str(frame_idx/(fps//FPS_RATE)) + ',' + str(frame_data.speed) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
                             write_to_csv(data, SAVE_CSV_PATH)
+                        
+                        prev_features_list = cur_features_list
+                        cur_features_list = []
                 else:
                     d_distances = extractParams.extract_distance_features(frame_data.skeleton)
                     d_angles = extractParams.extract_angle_features(frame_data.skeleton)

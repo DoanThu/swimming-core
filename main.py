@@ -1,4 +1,4 @@
-from config.general import MODE
+import argparse
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
@@ -9,12 +9,16 @@ from main_process.socket_process import run_socket
 
 
 if __name__ == '__main__':
-    logging.info(f'RUNNING IN {MODE} MODE' + '---'*5)
-    if MODE == 'VIDEO':
-        run_video(debug=True, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='detection') # needs rewrite
-    elif MODE == 'STREAMING':
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mode", type=str, help="mode can be VIDEO/STREAMING/SOCKET", required=True)
+    args = vars(ap.parse_args())
+
+    logging.info(f'RUNNING IN {args['mode']} MODE ' + '---'*5)
+    if args['mode'] == 'VIDEO':
+        run_video(debug=True, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='segmentation')
+    elif args['mode'] == 'STREAMING':
         run_stream(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='detection')
-    elif MODE == 'SOCKET':
-        run_socket(debug=True, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='detection')
+    elif args['mode'] == 'SOCKET':
+        run_socket(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='detection')
     
    
