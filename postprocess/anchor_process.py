@@ -143,7 +143,7 @@ class AnchorProcess:
             
             
     def update_anchor_points(self, frame_idx: int, frame: np.ndarray, frame_data: FrameData,
-                             lane_dividers: list, divider_type: str = 'segment'):
+                             lane_dividers: list, divider_type: str = 'segmentation'):
         """ First, update previous anchor points using optical flow.
         Then, add new points if there are new intersection points with the lane dividers.
         Keep the anchor points as they are, if lane divider list is empty or there are not new intersection points found.
@@ -185,9 +185,9 @@ class AnchorProcess:
             if frame_data.frame_orientation == FrameDataConst.VERTICAL and frame_data.direction in [FrameDataConst.UP, FrameDataConst.DOWN]:  # vertical frame
                 reference_y = head_coord[1]  # y coord
                 for divider in lane_dividers:
-                    if divider_type == 'segment':
+                    if divider_type == 'segmentation':
                         x, y, w, h = cv2.boundingRect(divider)
-                    else:
+                    elif divider_type == 'detection':
                         x, y, w, h = divider
                     # if y <= reference_y <= y+h:
                     new_anchors.extend([[x, reference_y], [x+w, reference_y]])
@@ -195,9 +195,9 @@ class AnchorProcess:
             elif frame_data.frame_orientation == FrameDataConst.HORIZONTAL and frame_data.direction in [FrameDataConst.LEFT, FrameDataConst.RIGHT]:  # horizontal frame
                 reference_x = head_coord[0]  # x coord
                 for divider in lane_dividers:
-                    if divider_type == 'segment':
+                    if divider_type == 'segmentation':
                         x, y, w, h = cv2.boundingRect(divider)
-                    else:
+                    elif divider_type == 'detection':
                         x, y, w, h = divider
                     # if x <= reference_x <= x+w:
                     new_anchors.extend([[reference_x, y], [reference_x, y+h]])

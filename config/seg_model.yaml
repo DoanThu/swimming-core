@@ -1,4 +1,3 @@
-# model_path: 'models/best_159_11l_1088_patience50.pt'
 model_path: 'models/seg11n-640.pt'
 
 # params for inference 

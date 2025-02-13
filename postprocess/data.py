@@ -72,4 +72,5 @@ class FrameData(SuperDataClass):
         pct_change_str = f'pct_change:{self.speed_pct_change:+.2f}'
         orientation_str = f'orientation:{FrameDataConst.MAP_ORIENTATION[self.frame_orientation]}'
         red_marker_str = f'red_marker:{self.red_marker}'
-        return [direction_str, red_marker_str, speed_str, pct_change_str, orientation_str]
+        return [direction_str]
+        # return [direction_str, red_marker_str, speed_str, pct_change_str, orientation_str]

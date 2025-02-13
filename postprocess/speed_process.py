@@ -20,7 +20,7 @@ class SpeedProcess:
     def calculate_speed(self, frame:np.ndarray, frame_data:FrameData, 
                         anchor_list:OrderedDict, 
                         lanes_segmentation:list,
-                        lane_type:str='segment',
+                        lane_type:str='segmentation',
                         unit_size:int=1):
         """ One frame might have multiple lane dividers. Each lane divider will return its length. The final distance will be the mode of all the dividers. 
 
@@ -53,9 +53,9 @@ class SpeedProcess:
             if y1 < y0: y0, y1 = y1, y0 # make sure y1 >= y0
             for ilane, lane_segmentation in enumerate(lanes_segmentation):
                 if len(lane_segmentation) == 0: continue
-                if lane_type == 'segment':
+                if lane_type == 'segmentation':
                     xmin, ymin, xmax, ymax = get_bbox(lane_segmentation)
-                else:
+                elif lane_type == 'detection':
                     x, y, w, h = lane_segmentation
                     xmin, ymin, xmax, ymax = x, 0, x+w, frame.shape[0]
                 if ymin < y0 and ymax > y1:
@@ -80,9 +80,9 @@ class SpeedProcess:
             if x1 < x0: x0, x1 = x1, x0 # make sure x1 >= x0
             for ilane, lane_segmentation in enumerate(lanes_segmentation):
                 if len(lane_segmentation) == 0: continue
-                if lane_type == 'segment':
+                if lane_type == 'segmentation':
                     xmin, ymin, xmax, ymax = get_bbox(lane_segmentation)
-                else:
+                elif lane_type == 'detection':
                     x, y, w, h = lane_segmentation
                     xmin, ymin, xmax, ymax = 0, y, frame.shape[1], y+h
                 if xmin < x0 and xmax > x1:
