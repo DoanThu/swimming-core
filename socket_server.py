@@ -13,41 +13,45 @@ print("Server started")
 
 
 frame_idx = 0
-while True:
-    clientsocket, addr = serversocket.accept()
-    print("Got a connection from %s" % str(addr))
+try: 
+    while True:
+        clientsocket, addr = serversocket.accept()
+        try:
+            if clientsocket:
+                print("Got a connection from %s" % str(addr))
+                # cap = cv2.VideoCapture(VIDEO_PATH)
+                cap = cv2.VideoCapture(0)
+                fps = int(cap.get(cv2.CAP_PROP_FPS))
+                
+                calculate_frame = MainCalculation(fps, lane_type='detection')
+                frame_idx = -1
+                while(cap.isOpened()):
+                    frame_idx += 1
 
-    if clientsocket:
-        cap = cv2.VideoCapture(VIDEO_PATH)
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-        
-        calculate_frame = MainCalculation(fps, lane_type='detection')
-        frame_idx = -1
-        while(cap.isOpened()):
-            frame_idx += 1
+                    ret, frame = cap.read()
+                    if ret:
+                        frame = cv2.resize(frame, (0, 0), fx = 0.5, fy = 0.5)
 
-            ret, frame = cap.read()
-            if ret:
-                frame = cv2.resize(frame, (0, 0), fx = 0.5, fy = 0.5)
+                        if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
+                            print(f'>>>>> {SAVE_AFTER_SECONDS} seconds elapsed. Current frame idx is {frame_idx}')
 
-                if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
-                    print(f'>>>>> {SAVE_AFTER_SECONDS} seconds elapsed. Current frame idx is {frame_idx}')
+                        if frame_idx % FPS_RATE != 0: 
+                            continue
+                        annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=False)
 
-                if frame_idx % FPS_RATE != 0: 
-                    continue
-                annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=False)
+                        a = pickle.dumps(annotated_frame)
+                        message = struct.pack("L", len(a))+a
 
-                a = pickle.dumps(annotated_frame)
-                # a = pickle.dumps(frame)
-                message = struct.pack("L", len(a))+a
-                clientsocket.sendall(message)
+                        a = pickle.dumps(frame)
+                        message += struct.pack("L", len(a))+a
+                        clientsocket.sendall(message)
 
-            # else:
-                # print('ERROR')
-
-            # cv2.imshow('Transmitted',frame)
-            # key = cv2.waitKey(1) & 0xFF
-            # if key == ord("q"):
-                # clientsocket.close()
-    # clientsocket.close()
-    
+                    else:
+                        print('Video ended')
+                        break
+        except Exception as e:
+            print("Closed a connection from %s" % str(addr))
+            clientsocket.close()
+except KeyboardInterrupt:
+    serversocket.close()
+    print('Server closed')
