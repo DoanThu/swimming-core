@@ -19,6 +19,6 @@ if __name__ == '__main__':
     elif args['mode'] == 'STREAMING':
         run_stream(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='detection')
     elif args['mode'] == 'SOCKET':
-        run_socket(debug=False, save_json=False, save_csv=True, fx=0.5, fy=0.5, lane_type='detection')
+        run_socket(debug=False, save_json=False, save_csv=True, fx=0.7, fy=0.7, lane_type='segmentation')
     
    

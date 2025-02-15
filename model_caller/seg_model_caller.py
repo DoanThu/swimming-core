@@ -1,6 +1,7 @@
 from ultralytics import YOLO
 import torch
 import numpy as np 
+import cv2
 
 class SegCaller:
     def __init__(self) -> None:
@@ -27,6 +28,7 @@ class SegCallerYOLO(SegCaller):
         masks = results[0].masks
         if masks == None: return []
         lane_divider_masks = [mask for i, mask in enumerate(results[0].masks.xy) if int(results[0].boxes.cls[i]) == 0]
-        return lane_divider_masks
+        lane_divider_bboxes = [cv2.boundingRect(np.array(segment)) for segment in lane_divider_masks]
+        return lane_divider_bboxes
         
         

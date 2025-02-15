@@ -57,7 +57,7 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                     common_fps = [24, 30, 60, 120]
                     fps = common_fps[np.argmin([abs(i-fps) for i in common_fps])]
 
-                    calculate_frame = MainCalculation(fps, lane_type=lane_type)
+                    calculate_frame = MainCalculation(fps=fps//FPS_RATE, lane_type=lane_type)
 
                     if not os.path.exists(os.path.dirname(out_video)):
                         os.makedirs(os.path.dirname(out_video))
@@ -72,7 +72,7 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
                         ret, frame = cap.read()
                         if ret:
-                            frame = cv2.resize(frame, (0, 0), fx = 0.5, fy = 0.5)
+                            frame = cv2.resize(frame, (0, 0), fx=fx, fy=fy)
 
                             if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
                                 logging.info(f'>>>>> {SAVE_AFTER_SECONDS} seconds elapsed. Current frame idx is {frame_idx}')
@@ -84,7 +84,6 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                             
                             sub_frame_data = {'speed': frame_data.speed, 'pct_change': frame_data.speed_pct_change}
 
-                            # logging.info(second_to_time_str(frame_idx/fps))
                             if not frame_data.skeleton: 
                                 send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, frame, sub_frame_data]) # size = 4
                                 continue
@@ -105,14 +104,17 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
 
                         else:
+                            cap.release()
+                            output.release()
+                            serversocket.close()
+                            clientsocket.close()
+                            
                             logging.info('Video ended')
                             if save_csv:
                                 logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
-                            cap.release()
-                            output.release()
-
-                            serversocket.close()
-                            clientsocket.close()
+                                
+                            if out_video:
+                                logging.debug(f'Annotated video is saved at {out_video}')
                             break
             except Exception as e:
                 traceback.print_exc()
@@ -120,7 +122,8 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                 clientsocket.close()
                 cap.release()
                 output.release()
-                logging.debug(f'Annotated video is saved at {out_video}')
+                if out_video:
+                    logging.debug(f'Annotated video is saved at {out_video}')
 
 
     except KeyboardInterrupt:

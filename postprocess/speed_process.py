@@ -32,11 +32,6 @@ class SpeedProcess:
         """
         self.marker_size_pixel = unit_size
         
-        def get_bbox(points:np.ndarray):
-            xmin, xmax = np.min(points[:,0]), np.max(points[:,0])
-            ymin, ymax = np.min(points[:,1]), np.max(points[:,1])
-            return xmin, ymin, xmax, ymax
-        
         if len(anchor_list) < 2: return
         times = list(anchor_list.keys()) # times are already sorted
         
@@ -46,6 +41,7 @@ class SpeedProcess:
             if times[-1]-times[i-1] > self.frame_window: break
         past_anchor = anchor_list[times[i]][0]
         if times[-1]  == times[i]: return 
+
         
         all_markers_count = [] # place to store markers count of all lane dividers
         if frame_data.frame_orientation == FrameDataConst.VERTICAL: # vertical, anchors at the same time have the same y
@@ -53,11 +49,9 @@ class SpeedProcess:
             if y1 < y0: y0, y1 = y1, y0 # make sure y1 >= y0
             for ilane, lane_segmentation in enumerate(lanes_segmentation):
                 if len(lane_segmentation) == 0: continue
-                if lane_type == 'segmentation':
-                    xmin, ymin, xmax, ymax = get_bbox(lane_segmentation)
-                elif lane_type == 'detection':
-                    x, y, w, h = lane_segmentation
-                    xmin, ymin, xmax, ymax = x, 0, x+w, frame.shape[0]
+                x, y, w, h = lane_segmentation
+                xmin, ymin, xmax, ymax = x, 0, x+w, frame.shape[0]
+                
                 if ymin < y0 and ymax > y1:
                     xmin, xmax = int(xmin), int(xmax)
                     if xmin - xmax == 0: continue
@@ -72,19 +66,14 @@ class SpeedProcess:
                     self.red_marker = filter_red(lane_image).shape[0]>1
                     all_markers_count.append(count_marker_)
 
-                    # if count_marker_ != -1: # == -1  when it is likely not a lane divider 
-                        # all_markers_count.append(count_marker_)
             
         else: # horizontal, anchors at the same time have the same x
             x0, x1 = int(past_anchor[0]), int(current_anchor[0]) # get x coord
             if x1 < x0: x0, x1 = x1, x0 # make sure x1 >= x0
             for ilane, lane_segmentation in enumerate(lanes_segmentation):
                 if len(lane_segmentation) == 0: continue
-                if lane_type == 'segmentation':
-                    xmin, ymin, xmax, ymax = get_bbox(lane_segmentation)
-                elif lane_type == 'detection':
-                    x, y, w, h = lane_segmentation
-                    xmin, ymin, xmax, ymax = 0, y, frame.shape[1], y+h
+                x, y, w, h = lane_segmentation
+                xmin, ymin, xmax, ymax = 0, y, frame.shape[1], y+h
                 if xmin < x0 and xmax > x1:
                     ymin, ymax = int(ymin), int(ymax)
                     if ymin - ymax == 0: continue
@@ -98,12 +87,10 @@ class SpeedProcess:
                     self.red_marker = filter_red(lane_image).shape[0]>1
                     all_markers_count.append(count_marker_)
 
-                    # if count_marker_ != -1: # == -1  when it is likely not a lane divider, or simply cannot count
-                        # all_markers_count.append(count_marker_)
         
         all_markers_count = np.array(all_markers_count)
         if len(all_markers_count) == 0: return
-        
+
         current_speed = scipy.stats.mode(all_markers_count).mode * self.marker_size / (times[-1]-times[i]) * self.fps
         if self.current_speed == FrameDataConst.UNKNOWN:
             self.current_speed = current_speed
