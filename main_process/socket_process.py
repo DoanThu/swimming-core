@@ -9,6 +9,9 @@ from postprocess.analytics import ExtractParams
 import os
 from utils.dict_utils import get_first_k
 import traceback
+from utils.time_utils import second_to_time_str
+import numpy as np
+
 
 def encode_to_send(data):
     a = pickle.dumps(data)
@@ -51,6 +54,8 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                     cap = cv2.VideoCapture(DEVICE_ID)
                     frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
                     fps = int(cap.get(cv2.CAP_PROP_FPS))
+                    common_fps = [24, 30, 60, 120]
+                    fps = common_fps[np.argmin([abs(i-fps) for i in common_fps])]
 
                     calculate_frame = MainCalculation(fps, lane_type=lane_type)
 
@@ -79,9 +84,9 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                             
                             sub_frame_data = {'speed': frame_data.speed, 'pct_change': frame_data.speed_pct_change}
 
-                           
+                            # logging.info(second_to_time_str(frame_idx/fps))
                             if not frame_data.skeleton: 
-                                send_to_client(clientsocket, [annotated_frame, frame, sub_frame_data]) # size = 3
+                                send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, frame, sub_frame_data]) # size = 4
                                 continue
 
                             d_distances = extractParams.extract_distance_features(frame_data.skeleton) # single point
@@ -89,7 +94,8 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                             cur_features_list.append([d_distances, d_angles])
                             dist_visualization, angle_visualization = param_visualization(d_distances, d_angles)
 
-                            send_to_client(clientsocket, [annotated_frame, frame, sub_frame_data, dist_visualization, angle_visualization]) # size = 5
+                            send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, 
+                                                          frame, sub_frame_data, dist_visualization, angle_visualization]) # size = 6
 
                             if updated_speed:
                                 pass
