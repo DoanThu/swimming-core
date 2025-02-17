@@ -7,10 +7,11 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
 from main_process.core_process import MainCalculation
 from postprocess.analytics import ExtractParams
 import os
-from utils.dict_utils import get_first_k
+from utils.dict_utils import dict_to_string, get_first_k
 import traceback
 from utils.time_utils import second_to_time_str
 import numpy as np
+from utils.file_utils import write_to_csv
 
 
 def encode_to_send(data):
@@ -92,12 +93,34 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                             d_angles = extractParams.extract_angle_features(frame_data.skeleton) # single point
                             cur_features_list.append([d_distances, d_angles])
                             dist_visualization, angle_visualization = param_visualization(d_distances, d_angles)
-
-                            send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, 
-                                                          frame, sub_frame_data, dist_visualization, angle_visualization]) # size = 6
+                            
 
                             if updated_speed:
-                                pass
+                                # Find factors impact speed change
+                                if not prev_features_list:
+                                    prev_features_list = cur_features_list
+                                    cur_features_list = []
+                                else:
+                                    extractParams.extract_pct_change_list(prev_features_list, cur_features_list)
+
+                                    # Save which params have changed the most
+                                    pct_dist_changes = get_first_k(extractParams.pct_dist_changes,5)
+                                    pct_angle_changes = get_first_k(extractParams.pct_angle_changes,5)
+                                    
+
+                                    send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, frame, 
+                                                                  sub_frame_data, dist_visualization, angle_visualization, 
+                                                                  pct_dist_changes, pct_angle_changes]) # size = 8
+
+                                    if save_csv:
+                                        data =  second_to_time_str(frame_idx/(fps//FPS_RATE)) + ',' + str(frame_data.speed) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
+                                        write_to_csv(data, SAVE_CSV_PATH)
+
+                                    prev_features_list = cur_features_list
+                                    cur_features_list = []
+                            else:
+                                send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, 
+                                                              frame, sub_frame_data, dist_visualization, angle_visualization]) # size = 6
 
                             if out_video:
                                 output.write(annotated_frame)
