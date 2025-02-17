@@ -185,22 +185,12 @@ class AnchorProcess:
             if frame_data.frame_orientation == FrameDataConst.VERTICAL and frame_data.direction in [FrameDataConst.UP, FrameDataConst.DOWN]:  # vertical frame
                 reference_y = head_coord[1]  # y coord
                 for divider in lane_dividers:
-                    # if divider_type == 'segmentation':
-                        # x, y, w, h = cv2.boundingRect(divider)
-                    # elif divider_type == 'detection':
-                        # x, y, w, h = divider
-                    # if y <= reference_y <= y+h:
                     x, y, w, h = divider
                     new_anchors.extend([[x, reference_y], [x+w, reference_y]])
                         
             elif frame_data.frame_orientation == FrameDataConst.HORIZONTAL and frame_data.direction in [FrameDataConst.LEFT, FrameDataConst.RIGHT]:  # horizontal frame
                 reference_x = head_coord[0]  # x coord
                 for divider in lane_dividers:
-                    # if divider_type == 'segmentation':
-                        # x, y, w, h = cv2.boundingRect(divider)
-                    # elif divider_type == 'detection':
-                        # x, y, w, h = divider
-                    # if x <= reference_x <= x+w:
                     x, y, w, h = divider
                     new_anchors.extend([[reference_x, y], [reference_x, y+h]])
 

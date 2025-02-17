@@ -95,9 +95,6 @@ class SpeedProcess:
         if self.current_speed == FrameDataConst.UNKNOWN:
             self.current_speed = current_speed
         else:
-            if current_speed < 20 and self.current_speed < 20:
-                self.pct_change = 0
-            else:
-                self.pct_change = (current_speed-self.current_speed)/self.current_speed
+            self.pct_change = (current_speed-self.current_speed)/self.current_speed
             self.current_speed = current_speed
 
