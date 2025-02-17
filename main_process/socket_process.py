@@ -1,5 +1,5 @@
 import socket,cv2,pickle, struct
-from config.general import FPS_RATE, DEVICE_ID, SAVE_AFTER_SECONDS, SAVE_VIDEO_PATH, SAVE_CSV_PATH
+from config.general import FPS_RATE, DEVICE_ID, SAVE_AFTER_SECONDS, SAVE_VIDEO_PATH, SAVE_CSV_PATH, REAL_SIZE_WIDTH
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
@@ -28,13 +28,13 @@ def send_to_client(clientsocket, list_data):
 def param_visualization(d_distances, d_angles):
     # For visualization in client side
     dist_feature_list = ['nose_lwrist', 'nose_rwrist', 'lwrist_rwrist']
-    dist_visualization = get_first_k({feature:d_distances[feature] for feature in dist_feature_list},5)
+    dist_visualization = get_first_k({feature:d_distances[feature]*REAL_SIZE_WIDTH for feature in dist_feature_list},5)
 
     angle_feature_list = ['lshoulder_lelbow_lwrist', 'rshoulder_relbow_rwrist']
     angle_visualization = get_first_k({feature:d_angles[feature] for feature in angle_feature_list},5)
     return dist_visualization, angle_visualization
 
-def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1, lane_type='segmentation'):
+def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1.0, fy=1.0, lane_type='segmentation'):
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     host = socket.gethostname()
     port = 9999
@@ -53,12 +53,15 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                     logging.info("Got a connection from %s" % str(addr))
 
                     cap = cv2.VideoCapture(DEVICE_ID)
-                    frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
+                    if fx < 1 and fy < 1:
+                        frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
+                    else:
+                        frame_width, frame_height = fx, fy
                     fps = int(cap.get(cv2.CAP_PROP_FPS))
                     common_fps = [24, 30, 60, 120]
                     fps = common_fps[np.argmin([abs(i-fps) for i in common_fps])]
 
-                    calculate_frame = MainCalculation(fps=fps//FPS_RATE, lane_type=lane_type)
+                    calculate_frame = MainCalculation(fps=fps, lane_type=lane_type)
 
                     if not os.path.exists(os.path.dirname(out_video)):
                         os.makedirs(os.path.dirname(out_video))
@@ -73,7 +76,10 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
                         ret, frame = cap.read()
                         if ret:
-                            frame = cv2.resize(frame, (0, 0), fx=fx, fy=fy)
+                            if fx < 1 and fy < 1:
+                                frame = cv2.resize(frame, (0, 0), fx=fx, fy=fy)
+                            else:
+                                frame = cv2.resize(frame, (fx, fy)) 
 
                             if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
                                 logging.info(f'>>>>> {SAVE_AFTER_SECONDS} seconds elapsed. Current frame idx is {frame_idx}')
@@ -83,7 +89,9 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
                             annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                             
-                            sub_frame_data = {'speed': frame_data.speed, 'pct_change': frame_data.speed_pct_change}
+                            swimming_speed = frame_data.speed * REAL_SIZE_WIDTH
+
+                            sub_frame_data = {'speed': swimming_speed, 'pct_change': frame_data.speed_pct_change}
 
                             if not frame_data.skeleton: 
                                 send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, frame, sub_frame_data]) # size = 4
@@ -113,7 +121,7 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                                                                   pct_dist_changes, pct_angle_changes]) # size = 8
 
                                     if save_csv:
-                                        data =  second_to_time_str(frame_idx/(fps//FPS_RATE)) + ',' + str(frame_data.speed) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
+                                        data =  second_to_time_str(frame_idx/fps) + ',' + str(swimming_speed) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
                                         write_to_csv(data, SAVE_CSV_PATH)
 
                                     prev_features_list = cur_features_list
