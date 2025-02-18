@@ -12,6 +12,7 @@ import traceback
 from utils.time_utils import second_to_time_str
 import numpy as np
 from utils.file_utils import write_to_csv
+from postprocess.data import FrameDataConst
 
 
 def encode_to_send(data):
@@ -90,8 +91,9 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                             annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                             
                             swimming_speed = frame_data.speed * REAL_SIZE_WIDTH
-
-                            sub_frame_data = {'speed': swimming_speed, 'pct_change': frame_data.speed_pct_change}
+                            sub_frame_data = {'speed': swimming_speed, 'pct_change': frame_data.speed_pct_change,
+                                               'stroke': FrameDataConst.MAP_STROKE[frame_data.stroke],
+                                               }
 
                             if not frame_data.skeleton: 
                                 send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, frame, sub_frame_data]) # size = 4

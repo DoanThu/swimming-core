@@ -1,6 +1,7 @@
-model_path: 'models/yolov8l-face.pt'
+model_path: 'models/yolov11n-face.pt'
 
 # params for inference 
 inference:
   verbose: False
-  max_det: 1000
+  max_det: 5
+  imgsz: 640

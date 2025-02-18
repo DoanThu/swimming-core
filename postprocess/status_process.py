@@ -59,47 +59,51 @@ class StatusProcess:
         
         self.leg_over_shoulder_arr = np.append(self.leg_over_shoulder_arr, leg_length/shoulder_length >= 2)
         self.leg_over_shoulder_arr = self.leg_over_shoulder_arr[-self.window_size:]
+
+        if leg_length/shoulder_length >= 2: return FrameDataConst.RACE
+        return FrameDataConst.STOP
+
         
-        if frame_data.status == FrameDataConst.READY:
-            if leg_length/shoulder_length >= 2: # can be "jump" 
-                if np.mean(self.leg_over_shoulder_arr) >= threshold:
-                    return FrameDataConst.JUMP
-            return frame_data.status
+        # if frame_data.status == FrameDataConst.READY:
+        #     if leg_length/shoulder_length >= 2: # can be "jump" 
+        #         if np.mean(self.leg_over_shoulder_arr) >= threshold:
+        #             return FrameDataConst.JUMP
+        #     return frame_data.status
         
-        elif frame_data.status == FrameDataConst.JUMP:
-            # can be "dolphin kick"
-            if leg_length/shoulder_length >= 2: 
-                if np.mean(self.wrist_distance_arr<ankle_distance) >= threshold:
-                    return FrameDataConst.DOLPHIN_KICK
-            return frame_data.status
+        # elif frame_data.status == FrameDataConst.JUMP:
+        #     # can be "dolphin kick"
+        #     if leg_length/shoulder_length >= 2: 
+        #         if np.mean(self.wrist_distance_arr<ankle_distance) >= threshold:
+        #             return FrameDataConst.DOLPHIN_KICK
+        #     return frame_data.status
                 
-        elif frame_data.status == FrameDataConst.DOLPHIN_KICK:
-            # race
-            if leg_length/shoulder_length >= 2: 
-                if np.mean(self.wrist_distance_arr<ankle_distance) >= threshold:
-                    return FrameDataConst.DOLPHIN_KICK
-            return FrameDataConst.RACE
-        elif frame_data.status == FrameDataConst.RACE:
-            # dolphin kick 
-            if leg_length/shoulder_length >= 2: 
-                if np.mean(self.wrist_distance_arr<ankle_distance) >= threshold:
-                    return FrameDataConst.DOLPHIN_KICK
-            # can be "turn"
-            else:
-                previous_status = [True if i.status == FrameDataConst.RACE or i.status == FrameDataConst.TURN else False for i in frame_data_list[-previous_interval:]]
-                if np.mean(previous_status) >= threshold:
-                    return FrameDataConst.TURN
-            return frame_data.status
+        # elif frame_data.status == FrameDataConst.DOLPHIN_KICK:
+        #     # race
+        #     if leg_length/shoulder_length >= 2: 
+        #         if np.mean(self.wrist_distance_arr<ankle_distance) >= threshold:
+        #             return FrameDataConst.DOLPHIN_KICK
+        #     return FrameDataConst.RACE
+        # elif frame_data.status == FrameDataConst.RACE:
+        #     # dolphin kick 
+        #     if leg_length/shoulder_length >= 2: 
+        #         if np.mean(self.wrist_distance_arr<ankle_distance) >= threshold:
+        #             return FrameDataConst.DOLPHIN_KICK
+        #     # can be "turn"
+        #     else:
+        #         previous_status = [True if i.status == FrameDataConst.RACE or i.status == FrameDataConst.TURN else False for i in frame_data_list[-previous_interval:]]
+        #         if np.mean(previous_status) >= threshold:
+        #             return FrameDataConst.TURN
+        #     return frame_data.status
             
-        elif frame_data.status == FrameDataConst.TURN:
-            # can be "race" or "stop"
-            previous_status = [True if i.status == FrameDataConst.TURN or i.status == FrameDataConst.STOP else False for i in frame_data_list[-previous_interval:]]
-            if np.mean(previous_status) >= threshold:
-                if leg_length/shoulder_length < 2:
-                    return FrameDataConst.STOP
-                else:
-                    return FrameDataConst.RACE
-            return frame_data.status
+        # elif frame_data.status == FrameDataConst.TURN:
+        #     # can be "race" or "stop"
+        #     previous_status = [True if i.status == FrameDataConst.TURN or i.status == FrameDataConst.STOP else False for i in frame_data_list[-previous_interval:]]
+        #     if np.mean(previous_status) >= threshold:
+        #         if leg_length/shoulder_length < 2:
+        #             return FrameDataConst.STOP
+        #         else:
+        #             return FrameDataConst.RACE
+        #     return frame_data.status
         
-        return frame_data.status
+        # return frame_data.status
         

@@ -93,6 +93,7 @@ class AnchorProcess:
 
         # Customize to update anchor points
         updated_vectors = np.array(updated_vectors)
+        if len(updated_vectors) == 0: return
         filter_x = self.reject_outliers(updated_vectors[:,0])
         filter_y = self.reject_outliers(updated_vectors[:,1])
         updated_vector = np.array([np.mean(filter_x), np.mean(filter_y)])

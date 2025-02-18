@@ -96,16 +96,14 @@ class MainCalculation:
                 frame_data.bbox_area = get_bbox_area(frame_data.bbox[0], frame_data.bbox[1], frame_data.bbox[2], frame_data.bbox[3])
                             
                 # TODO: get face (can be optimised)
-                # face_bboxes = face_caller.get_face(frame, **face_config['inference'])
-                # face_bbox = stroke_process.match_face(frame_data.skeleton, face_bboxes)
+                # face_bboxes = self.face_caller.get_face(frame, **self.face_config['inference'])
+                # face_bbox = self.stroke_process.match_face(frame_data.skeleton, face_bboxes)
                 # frame_data.face_up = face_bbox != None
                 frame_data.face_up = False
 
                 # get full lane divider for frame orientation
-                if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every seg_config frames
+                if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every 10*FREQ_SEGMENT frames
                     if self.lane_type == 'segmentation':
-                        # self.lane_divider_process.set_lane_divider_info(frame, self.seg_caller, **self.seg_config['inference'])
-                        # frame_data.frame_orientation = self.lane_divider_process.orientation
                         lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
                     elif self.lane_type == 'detection':
                         lane_divider_bboxes = self.detect_caller.detect_lane_dividers(frame, **self.detection_config['inference'])
@@ -113,38 +111,27 @@ class MainCalculation:
                     frame_data.frame_orientation = FrameDataConst.HORIZONTAL if direction >= 0 else FrameDataConst.VERTICAL
 
                 # get skeleton direction
-                # print(frame_data.skeleton)
                 frame_data.direction = self.direction_process.get_skeleton_direction(frame_data.skeleton)
                 
-                # TODO: detect status
-                # frame_data.status = status_process.get_status(frame_data.skeleton, frame_data, self.frame_data_list,
-                                                            # previous_interval=self.fps*3)
+                # detect status only RACE/STOP now
+                frame_data.status = self.status_process.get_status(frame_data.skeleton, frame_data, self.frame_data_list,
+                                                                   previous_interval=self.fps*3)
                 
                 # TODO: classify stroke
-                # frame_data.stroke = stroke_process.classify_stroke(frame_data, frame_data_list)
+                # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)
                 
                 # TODO: fix left right swap
                 # frame_data.skeleton = side_process.get_correct_side(frame_data.skeleton, frame_data)
                 
-                # get lane segmentation based on the head
-
                 if frame_idx % FREQ_SEGMENT == 0: # do the following every FREQ_SEGMENT frames
                     if self.lane_type == 'segmentation':
-                        # lanes_segmentation = self.anchor_process.segment_lane_dividers(frame, frame_data, self.seg_caller, **self.seg_config['inference'])
-
-                        # # generate random points on lane dividers
-                        # for segment in lanes_segmentation:
-                        #     x, y, w, h = cv2.boundingRect(np.array(segment))
-                        #     random_x = np.random.randint(x, x+w, NO_POINTS_SEGMENTATION)
-                        #     random_y = np.random.randint(y, y+h, NO_POINTS_SEGMENTATION)
-                        #     self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
-                        # self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lanes_segmentation, divider_type=self.lane_type)
-                         if len(lane_divider_bboxes) == 0:
+                        if len(lane_divider_bboxes) == 0:
                             lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
                     elif self.lane_type == 'detection':
                         if len(lane_divider_bboxes) == 0:
                             lane_divider_bboxes = self.detect_caller.detect_lane_dividers(frame, **self.detection_config['inference'])
-
+                    
+                    # generate random points inside the lane
                     for x,y,w,h in lane_divider_bboxes:
                         if frame_data.frame_orientation == FrameDataConst.HORIZONTAL:
                             random_x = np.random.randint(0, frame.shape[1], NO_POINTS_SEGMENTATION)
@@ -158,12 +145,6 @@ class MainCalculation:
 
 
                     # calculate speed
-                    # if self.lane_type == 'segmentation':
-                        # self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
-                                                            # lane_divider_bboxes, lane_type=self.lane_type, unit_size=1) # unit_size=1, counting pixel
-                    # elif self.lane_type == 'detection': 
-                        # self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
-                                                        # lane_divider_bboxes, lane_type=self.lane_type, unit_size=1) # unit_size=1, counting pixel
                     self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
                                                        lane_divider_bboxes, lane_type=self.lane_type, unit_size=1) # unit_size=1, counting pixel
                     frame_data.speed = self.speed_process.current_speed
@@ -187,10 +168,10 @@ class MainCalculation:
 
         annotated_frame = frame.copy()
         annotated_frame = draw_keypoints(frame, frame_data.skeleton)
-        if self.lane_type == 'segmentation':
-            annotated_frame = draw_segmentation(annotated_frame, lanes_segmentation)
-        elif self.lane_type == 'detection':
-            annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes)
+        # if self.lane_type == 'segmentation':
+            # annotated_frame = draw_segmentation(annotated_frame, lane_divider_bboxes)
+        # elif self.lane_type == 'detection':
+            # annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes)
 
         if debug:
             texts = frame_data.__str__()
@@ -202,7 +183,8 @@ class MainCalculation:
                                         color=self.RANDOM_COLORS[k%len(self.RANDOM_COLORS)].tolist(), radius=4)
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
-            self.frame_data_list = self.frame_data_list[-SAVE_AFTER_SECONDS*self.fps:]
+            self.frame_data_list.pop(0)
+            # self.frame_data_list = self.frame_data_list[-SAVE_AFTER_SECONDS*self.fps:]
             
         return annotated_frame, frame_data, updated_speed
     

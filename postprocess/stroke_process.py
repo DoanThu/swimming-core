@@ -2,9 +2,10 @@ import numpy as np
 import torch 
 from typing import List
 from postprocess.data import FrameData, FrameDataConst
+import math
 
 class StrokeProcess:
-    def __init__(self, time_window=180) -> None:
+    def __init__(self, time_window=100) -> None:
         self.time_window = time_window
     
     def match_face(self, swimmer_skeleton: torch.Tensor, face_bboxes: torch.Tensor) -> torch.Tensor:
@@ -42,8 +43,22 @@ class StrokeProcess:
         if dist_arr[box_idx] > dist_thres:
             return
         return face_bboxes[box_idx]
+
+    def get_length(self, p1: np.ndarray, p2: np.ndarray) -> float:
+            """ Compute length between two 2-D points
+
+            Args:
+                p1 (np.ndarray): first point, size = [1,2]
+                p2 (np.ndarray): second point, size = [1,2]
+
+            Returns:
+                float: distance between 2 input points
+            """
+            return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
     
-    def classify_stroke(self, frame_data: FrameData, frame_data_list: List[FrameData], threshold=0.8) -> int:
+    def classify_stroke(self, frame_data: FrameData, frame_data_list: List[FrameData], 
+                        threshold_status:float=0.8,
+                        threshold_correlation:int=8) -> int:
         """ classify stroke given the info of previous frames. Now can detect backstroke only.
 
         Args:
@@ -54,11 +69,22 @@ class StrokeProcess:
         Returns:
             int: return the stroke 
         """
-        stroke = FrameDataConst.UNKNOWN
-        direction = frame_data.direction
-        count_face = [1 for _frame in frame_data_list[-self.time_window:] if _frame.face_up and _frame.direction == direction]
-        if sum(count_face)/self.time_window > threshold: # likely to be backstroke
-            stroke = FrameDataConst.BACKSTROKE
-            
-        return stroke
+        if len(frame_data_list) < self.time_window: return FrameDataConst.UNKNOWN
+        overall_status = [1 if _frame.status != FrameDataConst.STOP else 0 for _frame in frame_data_list[-self.time_window:]]
+        if np.mean(overall_status) < threshold_status: return FrameDataConst.UNKNOWN
+
+        dist_lwrist_nose, dist_rwrist_nose = [], []
+        for _frame in frame_data_list[-self.time_window:]:
+            skeleton = _frame.skeleton
+            left_wrist, right_wrist, nose = skeleton[0][9], skeleton[0][10], skeleton[0][0]
+            dist_lwrist_nose.append(self.get_length(left_wrist, nose))
+            dist_rwrist_nose.append(self.get_length(right_wrist, nose))
+
+        correlation = np.correlate(dist_lwrist_nose, dist_rwrist_nose, 'full')
+        argmax = np.argmax(correlation)
+        if abs(len(correlation)//2-argmax) < threshold_correlation:
+            return FrameDataConst.BUTTERFLY
+        return FrameDataConst.FREESTYLE
+
+
                 

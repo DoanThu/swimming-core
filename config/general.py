@@ -25,7 +25,7 @@ VIDEO_PATH = f'2024Nov28_resized/{FILENAME}'
 
 # For STREAMING/SOCKET
 # DEVICE_ID = 0  
-DEVICE_ID = '2024Nov28_resized/DJI_0050.MP4' # Change to video path to debug
+DEVICE_ID = '2024Nov28_resized/DJI_0061.MP4' # Change to video path to debug, video 0061 butterfly
 if MODE == 'VIDEO':
     SAVE_CSV_PATH = f'csv_files/{FILENAME.split('.')[0]}.csv'
     SAVE_VIDEO_PATH = f'saved_annotated_videos/{FILENAME.split('.')[0]}_output.mp4'

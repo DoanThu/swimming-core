@@ -31,6 +31,7 @@ class FrameDataConst:
     MAP_DIRECTION = {-1: 'UNKNOWN', 0: 'LEFT', 1: 'RIGHT', 2: 'UP', 3: 'DOWN'}
     MAP_STATUS = {-1: 'UNKNOWN', 0: 'READY', 1: 'JUMP', 2: 'RACE', 3: 'STOP', 4: 'TURN', 5: 'DOLPHIN_KICK'}
     MAP_ORIENTATION = {-1: 'UNKNOWN', 0: 'VERTICAL', 1: 'HORIZONTAL'}
+    MAP_STROKE = {-1: 'UNKNOWN', 0: 'BACKSTROKE', 1: 'BUTTERFLY', 2: 'FREESTYLE', 3: 'BREASTSTROKE'}
 
 @dataclass
 class FrameData(SuperDataClass):
@@ -42,7 +43,6 @@ class FrameData(SuperDataClass):
     direction: int = FrameDataConst.UNKNOWN
     status: int = FrameDataConst.READY
     reach_marker: bool = False
-    # skeleton: torch.Tensor = torch.Tensor(0, 17, 2)
     skeleton: list = field(default_factory=list)
     bbox: torch.Tensor = torch.Tensor(0, 4) # xmin, ymin, xmax, ymax
     bbox_area: float = FrameDataConst.UNKNOWN
