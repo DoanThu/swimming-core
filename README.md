@@ -4,15 +4,8 @@ Run `python ./utils/find_camera.py` to find device's port.
 
 Go to `config/general.py` to change `DEVICE_PORT` accordingly.
 
-## Turn on Redis and store the stream in Redis
-### Start Redis server
-On Windows, open WSL and run:
-
-`sudo service redis-server start`
-
-to start Redis. Default is on port 6379.
-
-**Optional**: To check if Redis is running, run: `redis-cli` and `ping`.
+## Run the server
+`python main.py --mode SOCKET`
 <!-- 
 # Where to start?
 - Start from `main.py`
