@@ -3,9 +3,13 @@ import torch
 from typing import List
 from postprocess.data import FrameData, FrameDataConst
 import math
+from config.general import FPS_RATE
+from scipy.signal import find_peaks
+
 
 class StrokeProcess:
-    def __init__(self, time_window=100) -> None:
+    def __init__(self, fps, time_window=150) -> None:
+        self.fps = fps
         self.time_window = time_window
     
     def match_face(self, swimmer_skeleton: torch.Tensor, face_bboxes: torch.Tensor) -> torch.Tensor:
@@ -86,5 +90,39 @@ class StrokeProcess:
             return FrameDataConst.BUTTERFLY
         return FrameDataConst.FREESTYLE
 
+
+    def count_stroke(self, frame_data_list: List[FrameData],
+                    threshold_status:float=0.8):
+        
+        if len(frame_data_list) < self.time_window: 
+            return 0
+        
+        overall_status = [1 if _frame.status != FrameDataConst.STOP else 0 for _frame in frame_data_list[-self.time_window:]]
+        if np.mean(overall_status) < threshold_status: 
+            # print(np.mean(overall_status))
+            return 0
+
+        dist_lwrist_nose = []
+        for _frame in frame_data_list[-self.time_window:]:
+            skeleton = _frame.skeleton
+            left_wrist, nose = skeleton[0][9], skeleton[0][0]
+            dist_lwrist_nose.append(self.get_length(left_wrist, nose))
+
+        f = self.fps//FPS_RATE
+        T = 1/f
+        yf = abs(np.fft.fft(dist_lwrist_nose)) # to normalize use norm='ortho' as an additional argument
+        freq = np.fft.fftfreq(self.time_window, d=T)
+
+        # Find peaks
+        i_peaks, _ = find_peaks(yf[:self.time_window//2])
+        # Find the index from the maximum peak
+        i_max_peak = i_peaks[np.argmax(yf[i_peaks])]
+
+
+        max_freq = freq[i_max_peak]
+        # print(f'len(yf)={len(yf)}')
+        # print(f'i_max_peak={i_max_peak}, max_freq={max_freq}')
+
+        return int(1/max_freq*60) # convert stroker/s to stroke/minute
 
                 

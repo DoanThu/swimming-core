@@ -90,9 +90,13 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
                             annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                             
+
                             swimming_speed = frame_data.speed * REAL_SIZE_WIDTH
                             sub_frame_data = {'speed': swimming_speed, 'pct_change': frame_data.speed_pct_change,
                                                'stroke': FrameDataConst.MAP_STROKE[frame_data.stroke],
+                                               'direction': FrameDataConst.MAP_DIRECTION[frame_data.direction],
+                                               'stroke_count': frame_data.stroke_count,
+                                               'status': FrameDataConst.MAP_STATUS[frame_data.status]
                                                }
 
                             if not frame_data.skeleton: 
@@ -132,23 +136,25 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                                 send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, 
                                                               frame, sub_frame_data, dist_visualization, angle_visualization]) # size = 6
 
-                            if out_video:
-                                output.write(annotated_frame)
+                            # if out_video:
+                                # output.write(annotated_frame)
 
 
                         else:
-                            cap.release()
-                            output.release()
-                            serversocket.close()
-                            clientsocket.close()
+                            cap = cv2.VideoCapture(DEVICE_ID)
+                            # cap.release()
+                            # output.release()
+                            # serversocket.close()
+                            # clientsocket.close()
                             
-                            logging.info('Video ended')
-                            if save_csv:
-                                logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
+                            # logging.info('Video ended')
+                            # if save_csv:
+                            #     logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
                                 
-                            if out_video:
-                                logging.debug(f'Annotated video is saved at {out_video}')
-                            break
+                            # if out_video:
+                            #     logging.debug(f'Annotated video is saved at {out_video}')
+                            # break
+
             except Exception as e:
                 traceback.print_exc()
                 logging.info("Closed a connection from %s" % str(addr))

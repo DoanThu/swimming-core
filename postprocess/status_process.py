@@ -60,7 +60,7 @@ class StatusProcess:
         self.leg_over_shoulder_arr = np.append(self.leg_over_shoulder_arr, leg_length/shoulder_length >= 2)
         self.leg_over_shoulder_arr = self.leg_over_shoulder_arr[-self.window_size:]
 
-        if leg_length/shoulder_length >= 2: return FrameDataConst.RACE
+        if leg_length/shoulder_length >= 1.5: return FrameDataConst.RACE
         return FrameDataConst.STOP
 
         

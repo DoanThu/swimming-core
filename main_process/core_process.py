@@ -34,7 +34,7 @@ class MainCalculation:
 
         self.RANDOM_COLORS = np.random.randint(0, 255, (100, 3))
 
-        self.stroke_process = StrokeProcess()
+        self.stroke_process = StrokeProcess(fps=self.fps)
         self.status_process = StatusProcess()
         self.side_process = SideProcess()
         self.direction_process = DirectionProcess()
@@ -117,6 +117,9 @@ class MainCalculation:
                 frame_data.status = self.status_process.get_status(frame_data.skeleton, frame_data, self.frame_data_list,
                                                                    previous_interval=self.fps*3)
                 
+                # count stroke
+                frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
+                
                 # TODO: classify stroke
                 # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)
                 
@@ -167,7 +170,7 @@ class MainCalculation:
         self.frame_data_list.append(frame_data)
 
         annotated_frame = frame.copy()
-        annotated_frame = draw_keypoints(frame, frame_data.skeleton)
+        annotated_frame = draw_keypoints(frame, frame_data.skeleton, thickness=2)
         # if self.lane_type == 'segmentation':
             # annotated_frame = draw_segmentation(annotated_frame, lane_divider_bboxes)
         # elif self.lane_type == 'detection':
@@ -184,7 +187,6 @@ class MainCalculation:
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
             self.frame_data_list.pop(0)
-            # self.frame_data_list = self.frame_data_list[-SAVE_AFTER_SECONDS*self.fps:]
             
         return annotated_frame, frame_data, updated_speed
     

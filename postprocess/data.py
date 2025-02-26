@@ -47,6 +47,7 @@ class FrameData(SuperDataClass):
     bbox: torch.Tensor = torch.Tensor(0, 4) # xmin, ymin, xmax, ymax
     bbox_area: float = FrameDataConst.UNKNOWN
     stroke: int = FrameDataConst.UNKNOWN
+    stroke_count: int = 0
     face_up: bool = False
     
     # speed info 
