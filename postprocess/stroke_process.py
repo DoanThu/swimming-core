@@ -4,7 +4,7 @@ from typing import List
 from postprocess.data import FrameData, FrameDataConst
 import math
 from config.general import FPS_RATE
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, savgol_filter
 
 
 class StrokeProcess:
@@ -102,27 +102,40 @@ class StrokeProcess:
             # print(np.mean(overall_status))
             return 0
 
-        dist_lwrist_nose = []
+        dist_wrist_wrist = []
         for _frame in frame_data_list[-self.time_window:]:
             skeleton = _frame.skeleton
-            left_wrist, nose = skeleton[0][9], skeleton[0][0]
-            dist_lwrist_nose.append(self.get_length(left_wrist, nose))
+            left_wrist, right_wrist = skeleton[0][9], skeleton[0][10]
+            dist_wrist_wrist.append(self.get_length(left_wrist, right_wrist))
 
-        f = self.fps//FPS_RATE
-        T = 1/f
-        yf = abs(np.fft.fft(dist_lwrist_nose)) # to normalize use norm='ortho' as an additional argument
-        freq = np.fft.fftfreq(self.time_window, d=T)
+        dist_wrist_wrist = savgol_filter(dist_wrist_wrist, 51, 3) # window size 51, polynomial order 3
+        # dist_wrist_wrist = (dist_wrist_wrist - np.min(dist_wrist_wrist)) / (np.max(dist_wrist_wrist) - np.min(dist_wrist_wrist)) # scale between 0-1
+
+
+        i_peaks, _ = find_peaks(dist_wrist_wrist, height=0.8, distance=self.fps//FPS_RATE//2) # distance = 0.5s
+        duration_in_seconds = self.time_window/(self.fps//FPS_RATE)
+        # print(f'len i peak = {len(i_peaks)}')
+        # print(f'duration_in_seconds = {duration_in_seconds}')
+        stroke_count = int(len(i_peaks)*60/duration_in_seconds)
+        return stroke_count if stroke_count < 100 else 0 # stroke per minute
+
+
+
+        # f = self.fps//FPS_RATE
+        # T = 1/f
+        # yf = abs(np.fft.fft(dist_lwrist_nose)) # to normalize use norm='ortho' as an additional argument
+        # freq = np.fft.fftfreq(self.time_window, d=T)
 
         # Find peaks
-        i_peaks, _ = find_peaks(yf[:self.time_window//2])
+        # i_peaks, _ = find_peaks(yf[:self.time_window//2])
         # Find the index from the maximum peak
-        i_max_peak = i_peaks[np.argmax(yf[i_peaks])]
+        # i_max_peak = i_peaks[np.argmax(yf[i_peaks])]
 
 
-        max_freq = freq[i_max_peak]
+        # max_freq = freq[i_max_peak]
         # print(f'len(yf)={len(yf)}')
         # print(f'i_max_peak={i_max_peak}, max_freq={max_freq}')
 
-        return int(1/max_freq*60) # convert stroker/s to stroke/minute
+        # return int(1/max_freq*60) # convert stroker/s to stroke/minute
 
                 
