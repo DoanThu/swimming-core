@@ -142,6 +142,7 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
                         else:
                             cap = cv2.VideoCapture(DEVICE_ID)
+                            frame_idx = -1
                             # cap.release()
                             # output.release()
                             # serversocket.close()
