@@ -13,8 +13,8 @@ class AnchorProcess:
         self.anchor_list = OrderedDict()
         self.random_anchor_list = OrderedDict() # generated random anchor points to minimize the effect of water flow
         self.window = window
-        self.lk_params = {'winSize':(15, 15), 'maxLevel':2,
-                           'criteria':(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)}
+        self.lk_params_slow = {'winSize':(15, 15), 'maxLevel':2, 'criteria':(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)}
+        self.lk_params_fast = {'winSize':(15, 15), 'maxLevel':6, 'criteria':(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)}
 
 
     def segment_lane_dividers(self, frame: np.ndarray, frame_data: FrameData,
@@ -55,6 +55,27 @@ class AnchorProcess:
             lane_dividers[0][:, 1] += y1
 
         return lane_dividers
+    
+    def get_updated_vector(self, p0, frame_gray, **param):
+         # reshape according to optical flow lib's requirement
+        p0 = p0.reshape(p0.shape[0],1,p0.shape[1])
+        p1, st, err = cv2.calcOpticalFlowPyrLK(self.prev_gray_frame, frame_gray, p0, None, **param)
+        good_new, good_old = [], []
+        if p1 is not None:
+            good_new = p1[st==1]
+            good_old = p0[st==1]
+
+        # Get updated position of anchor points
+        updated_vectors = []
+        for i, (new, old) in enumerate(zip(good_new, good_old)):
+            a, b = new.ravel()
+            c, d = old.ravel()
+            updated_vectors.append([a-c, b-d])
+        
+        # Customize to update anchor points
+        updated_vectors = np.array(updated_vectors)
+        return updated_vectors
+    
 
     def update_optical_flow_anchors(self, frame: np.ndarray):
         """ Update previous anchor points using optical flow. 
@@ -76,27 +97,23 @@ class AnchorProcess:
         latest_point = list(self.random_anchor_list.keys())[0]
         p0 = self.random_anchor_list[latest_point]
 
-        # reshape according to optical flow lib's requirement
-        p0 = p0.reshape(p0.shape[0],1,p0.shape[1])
-        p1, st, err = cv2.calcOpticalFlowPyrLK(self.prev_gray_frame, frame_gray, p0, None, **self.lk_params)
-        good_new, good_old = [], []
-        if p1 is not None:
-            good_new = p1[st==1]
-            good_old = p0[st==1]
-
-        # Get updated position of anchor points
-        updated_vectors = []
-        for i, (new, old) in enumerate(zip(good_new, good_old)):
-            a, b = new.ravel()
-            c, d = old.ravel()
-            updated_vectors.append([a-c, b-d])
-
-        # Customize to update anchor points
-        updated_vectors = np.array(updated_vectors)
+        updated_vectors = self.get_updated_vector(p0, frame_gray, **self.lk_params_slow)
         if len(updated_vectors) == 0: return
         filter_x = self.reject_outliers(updated_vectors[:,0])
         filter_y = self.reject_outliers(updated_vectors[:,1])
         updated_vector = np.array([np.mean(filter_x), np.mean(filter_y)])
+
+        if updated_vector[0] == 0 and updated_vector[1] == 0:
+            print(updated_vector)
+            updated_vectors = self.get_updated_vector(p0, frame_gray, **self.lk_params_fast)
+        
+            if len(updated_vectors) == 0: return
+            filter_x = self.reject_outliers(updated_vectors[:,0])
+            filter_y = self.reject_outliers(updated_vectors[:,1])
+            updated_vector = np.array([np.mean(filter_x), np.mean(filter_y)])
+            print(updated_vector)
+            print('>>>>>'*5)
+
 
         # Update anchor points
         for k, p0 in self.anchor_list.items():
