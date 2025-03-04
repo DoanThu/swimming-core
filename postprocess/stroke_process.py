@@ -99,15 +99,17 @@ class StrokeProcess:
         
         overall_status = [1 if _frame.status != FrameDataConst.STOP else 0 for _frame in frame_data_list[-self.time_window:]]
         if np.mean(overall_status) < threshold_status: 
-            # print(np.mean(overall_status))
             return 0
 
         dist_wrist_wrist = []
         for _frame in frame_data_list[-self.time_window:]:
             skeleton = _frame.skeleton
+            if len(skeleton) == 0:
+                continue
             left_wrist, right_wrist = skeleton[0][9], skeleton[0][10]
             dist_wrist_wrist.append(self.get_length(left_wrist, right_wrist))
 
+        if len(dist_wrist_wrist) < self.time_window: return 0
         dist_wrist_wrist = savgol_filter(dist_wrist_wrist, 51, 3) # window size 51, polynomial order 3
         # dist_wrist_wrist = (dist_wrist_wrist - np.min(dist_wrist_wrist)) / (np.max(dist_wrist_wrist) - np.min(dist_wrist_wrist)) # scale between 0-1
 
