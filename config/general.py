@@ -13,6 +13,7 @@ POSE_CONFIG = 'config/pose_model.yaml'
 SEG_CONFIG = 'config/seg_model.yaml'
 DETECT_CONFIG = 'config/detect_model.yaml'
 FACE_CONFIG = 'config/face_model.yaml'
+OPTICAL_FLOW_CONFIG = 'config/optical_flow_model.yaml'
 
 # Sytem 
 SAVE_AFTER_SECONDS = 5 
