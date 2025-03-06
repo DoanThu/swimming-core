@@ -53,6 +53,7 @@ def filter_red(image: np.ndarray) -> np.ndarray:
     mask1 = cv2.inRange(img_hsv, lower_red, upper_red)
     
     mask = mask0+mask1
+    return mask 
     if np.all(mask==0): return np.array([])
     return crop_image_from_mask(image, mask)
 
@@ -63,6 +64,7 @@ def filter_blue(image: np.ndarray) -> np.ndarray:
     lower_blue = np.array([90, 0, 0]) 
     upper_blue = np.array([130, 255, 255])
     mask = cv2.inRange(img_hsv, lower_blue, upper_blue)
+    return mask
     
     if np.all(mask==0): return np.array([])
     return crop_image_from_mask(image, mask)
@@ -75,6 +77,7 @@ def filter_yellow(image: np.ndarray) -> np.ndarray:
     lower_yellow = np.array([12, 0, 0])
     upper_yellow = np.array([32, 255, 255])
     mask = cv2.inRange(img_hsv, lower_yellow, upper_yellow)
+    return mask
     
     if np.all(mask==0): return np.array([])
     return crop_image_from_mask(image, mask)
