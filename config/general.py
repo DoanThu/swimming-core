@@ -14,6 +14,7 @@ SEG_CONFIG = 'config/seg_model.yaml'
 DETECT_CONFIG = 'config/detect_model.yaml'
 FACE_CONFIG = 'config/face_model.yaml'
 OPTICAL_FLOW_CONFIG = 'config/optical_flow_model.yaml'
+OPTICAL_FLOW_METHOD = 'LK' # LK/RAFT
 
 # Sytem 
 SAVE_AFTER_SECONDS = 5 
@@ -21,7 +22,7 @@ SAVE_JSON_PATH = 'frame_info/interval_{}.json'
 SAVE_CSV_COLUMNS = ['timestamp', 'speed', 'speed_pct_change', 'pct_dist_changes', 'angle_changes']
 
 # For VIDEO
-FILENAME = 'DJI_0059.MP4'
+FILENAME = 'DJI_0064_demo.MP4'
 VIDEO_PATH = f'2024Nov28_resized/{FILENAME}' 
 
 # For STREAMING/SOCKET
@@ -45,7 +46,8 @@ elif MODE in ['STREAMING', 'SOCKET']:
 D = 8 # drone height is 8m
 SENSOR_SIZE = (17.3/1000, 13.3/1000) # 17.3 x 13 mm
 F = 24/1000 # focal length 24mm
-RESOLUTION = (660, 440) # resize of 5472, 3648
+# RESOLUTION = (660, 440) # resize of 5472, 3648
+RESOLUTION = (480, 320) # resize of 5472, 3648, should divisible by 8 if RAFT is used
 PIXEL_DENSITY_WIDTH = RESOLUTION[0]/SENSOR_SIZE[0]
 PIXEL_DENSITY_HEIGHT = RESOLUTION[1]/SENSOR_SIZE[1]
 REAL_SIZE_WIDTH = D/(F*PIXEL_DENSITY_WIDTH) # size of 1 pixel in meter
