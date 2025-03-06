@@ -74,9 +74,14 @@ class MainCalculation:
         self.lane_divider_process = LaneDivider()
 
 
+        self.prev_frame = np.array([])
+
 
         
     def swimming_calculation(self, frame:np.array, frame_idx:int, debug:bool=True) -> tuple:
+        if len(self.prev_frame) == 0:
+            self.prev_frame = frame
+
         updated_speed = False 
 
         frame = cv2.resize(frame, None, fx=self.fx, fy=self.fy)
@@ -93,87 +98,86 @@ class MainCalculation:
             
         # call models 
         frame_keypoints = self.pose_caller.get_keypoint(frame, **self.pose_config['inference'])
-        # if nothing detected, its shape is (N,0,51) 
-        if frame_keypoints.shape[1] != 0:
-            frame_keypoints = get_valid_skeletons(frame_keypoints) # filter invalid keypoints
-                
-            # or (0, 17, 2)
-            if frame_keypoints.shape[0] != 0:
-                # print(frame_keypoints.shape)
-                # get one closest skeleton
-                frame_data.skeleton = frame_keypoints
-                frame_data.bbox = get_bbox(frame_data.skeleton[0])
-                frame_data.bbox_area = get_bbox_area(frame_data.bbox[0], frame_data.bbox[1], frame_data.bbox[2], frame_data.bbox[3])
+        # if nothing detected, its shape is (N,0,51), the valid skeletons return (0, 17, 2)
+        if frame_keypoints.shape[1] != 0 and get_valid_skeletons(frame_keypoints).shape[0] != 0:
+            # print(frame_keypoints.shape)
+            # get one closest skeleton
+            frame_data.skeleton = frame_keypoints
+            frame_data.bbox = get_bbox(frame_data.skeleton[0])
+            frame_data.bbox_area = get_bbox_area(frame_data.bbox[0], frame_data.bbox[1], frame_data.bbox[2], frame_data.bbox[3])
                             
-                # TODO: get face (can be optimised)
-                # face_bboxes = self.face_caller.get_face(frame, **self.face_config['inference'])
-                # face_bbox = self.stroke_process.match_face(frame_data.skeleton, face_bboxes)
-                # frame_data.face_up = face_bbox != None
-                frame_data.face_up = False
+            # TODO: get face (can be optimised)
+            # face_bboxes = self.face_caller.get_face(frame, **self.face_config['inference'])
+            # face_bbox = self.stroke_process.match_face(frame_data.skeleton, face_bboxes)
+            # frame_data.face_up = face_bbox != None
+            frame_data.face_up = False
 
-                # get full lane divider for frame orientation
-                if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every 10*FREQ_SEGMENT frames
-                    if self.lane_type == 'segmentation':
+            # get full lane divider for frame orientation
+            if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every 10*FREQ_SEGMENT frames
+                if self.lane_type == 'segmentation':
+                    lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
+                elif self.lane_type == 'detection':
+                    lane_divider_bboxes = self.detect_caller.detect_lane_dividers(frame, **self.detection_config['inference'])
+                direction = sum([1 if w > h else -1 for _,_,w,h in lane_divider_bboxes])
+                frame_data.frame_orientation = FrameDataConst.HORIZONTAL if direction >= 0 else FrameDataConst.VERTICAL
+
+            # get skeleton direction
+            frame_data.direction = self.direction_process.get_skeleton_direction(frame_data.skeleton)
+            
+            # detect status only RACE/STOP now
+            frame_data.status = self.status_process.get_status(frame_data.skeleton, frame_data, self.frame_data_list,
+                                                                previous_interval=self.fps*3)
+            
+            # count stroke
+            frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
+            
+            # TODO: classify stroke
+            # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)
+            
+            # TODO: fix left right swap
+            # frame_data.skeleton = side_process.get_correct_side(frame_data.skeleton, frame_data)
+                
+            if frame_idx % FREQ_SEGMENT == 0: # do the following every FREQ_SEGMENT frames
+                if self.lane_type == 'segmentation':
+                    if len(lane_divider_bboxes) == 0:
                         lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
-                    elif self.lane_type == 'detection':
+                elif self.lane_type == 'detection':
+                    if len(lane_divider_bboxes) == 0:
                         lane_divider_bboxes = self.detect_caller.detect_lane_dividers(frame, **self.detection_config['inference'])
-                    direction = sum([1 if w > h else -1 for _,_,w,h in lane_divider_bboxes])
-                    frame_data.frame_orientation = FrameDataConst.HORIZONTAL if direction >= 0 else FrameDataConst.VERTICAL
-
-                # get skeleton direction
-                frame_data.direction = self.direction_process.get_skeleton_direction(frame_data.skeleton)
                 
-                # detect status only RACE/STOP now
-                frame_data.status = self.status_process.get_status(frame_data.skeleton, frame_data, self.frame_data_list,
-                                                                   previous_interval=self.fps*3)
-                
-                # count stroke
-                frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
-                
-                # TODO: classify stroke
-                # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)
-                
-                # TODO: fix left right swap
-                # frame_data.skeleton = side_process.get_correct_side(frame_data.skeleton, frame_data)
-                
-                if frame_idx % FREQ_SEGMENT == 0: # do the following every FREQ_SEGMENT frames
-                    if self.lane_type == 'segmentation':
-                        if len(lane_divider_bboxes) == 0:
-                            lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
-                    elif self.lane_type == 'detection':
-                        if len(lane_divider_bboxes) == 0:
-                            lane_divider_bboxes = self.detect_caller.detect_lane_dividers(frame, **self.detection_config['inference'])
-                    
-                    # generate random points inside the lane
-                    for x,y,w,h in lane_divider_bboxes:
-                        if frame_data.frame_orientation == FrameDataConst.HORIZONTAL:
-                            random_x = np.random.randint(0, frame.shape[1], NO_POINTS_SEGMENTATION)
-                            random_y = np.random.randint(y, y+h, NO_POINTS_SEGMENTATION)
-                        else:
-                            random_x = np.random.randint(x, x+w, NO_POINTS_SEGMENTATION)
-                            random_y = np.random.randint(0, frame.shape[0], NO_POINTS_SEGMENTATION)
-                        self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
+                # generate random points inside the lane
+                for x,y,w,h in lane_divider_bboxes:
+                    if frame_data.frame_orientation == FrameDataConst.HORIZONTAL:
+                        random_x = np.random.randint(0, frame.shape[1], NO_POINTS_SEGMENTATION)
+                        random_y = np.random.randint(y, y+h, NO_POINTS_SEGMENTATION)
+                    else:
+                        random_x = np.random.randint(x, x+w, NO_POINTS_SEGMENTATION)
+                        random_y = np.random.randint(0, frame.shape[0], NO_POINTS_SEGMENTATION)
+                    self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
 
-                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lane_divider_bboxes)
+                self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, lane_divider_bboxes)
 
 
-                    # calculate speed
-                    self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
-                                                       lane_divider_bboxes, lane_type=self.lane_type, unit_size=1) # unit_size=1, counting pixel
-                    frame_data.speed = self.speed_process.current_speed
-                    frame_data.speed_pct_change = self.speed_process.pct_change
-                    frame_data.red_marker = self.speed_process.red_marker
-                    updated_speed = True
+                # calculate speed
+                self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
+                                                    lane_divider_bboxes, lane_type=self.lane_type, unit_size=1) # unit_size=1, counting pixel
+                frame_data.speed = self.speed_process.current_speed
+                frame_data.speed_pct_change = self.speed_process.pct_change
+                frame_data.red_marker = self.speed_process.red_marker
+                updated_speed = True
 
-                else:
-                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, [])
-                    frame_data.speed = self.frame_data_list[-1].speed
-                    frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
+            else:
+                self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
+                frame_data.speed = self.frame_data_list[-1].speed
+                frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
 
+        else:
+            self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
+            frame_data.speed = self.frame_data_list[-1].speed
+            frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
 
-                
-
-
+        self.prev_frame = frame
+        
                         
             
         if torch.is_tensor(frame_data.skeleton):
