@@ -3,18 +3,21 @@ from model_caller.seg_model_caller import SegCaller
 from postprocess.data import FrameData, FrameDataConst
 from collections import OrderedDict
 import cv2
+from model_caller.optical_flow_model_caller import OpticalFlowCaller
+import torch
 
 
 class AnchorProcess:
-    def __init__(self, window: int = 60):
-        self.prev_gray_frame = np.array([])
-        self.cur_frame = np.array([])
+    def __init__(self, window: int = 60, method: str = 'LK', optical_flow_model: OpticalFlowCaller = None):
+        self.prev_frame = np.array([])
         # dictionary of time: adjusted anchors' coordinates
         self.anchor_list = OrderedDict()
         self.random_anchor_list = OrderedDict() # generated random anchor points to minimize the effect of water flow
         self.window = window
         self.lk_params = {'winSize':(15, 15), 'maxLevel':2,
                            'criteria':(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)}
+        self.method = method
+        self.optical_flow_model = optical_flow_model
 
 
     def segment_lane_dividers(self, frame: np.ndarray, frame_data: FrameData,
@@ -55,6 +58,50 @@ class AnchorProcess:
             lane_dividers[0][:, 1] += y1
 
         return lane_dividers
+    
+    def get_updated_vectors(self, p0, frame):
+        if self.method == 'LK':
+            # reshape according to optical flow lib's requirement
+            p0 = p0.reshape(p0.shape[0],1,p0.shape[1])
+            p1, st, err = cv2.calcOpticalFlowPyrLK(cv2.cvtColor(self.prev_frame, cv2.COLOR_BGR2GRAY), cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+                                                    p0, None, **self.lk_params)
+            good_new, good_old = [], []
+            if p1 is not None:
+                good_new = p1[st==1]
+                good_old = p0[st==1]
+
+            # Get updated position of anchor points
+            updated_vectors = []
+            for i, (new, old) in enumerate(zip(good_new, good_old)):
+                a, b = new.ravel()
+                c, d = old.ravel()
+                updated_vectors.append([a-c, b-d])
+            return updated_vectors
+        elif self.method == 'RAFT':
+            # example of input
+            # img1_batch = torch.stack([frames[100], frames[150]])
+            # img2_batch = torch.stack([frames[101], frames[151]])
+
+            def to_tensor_image(image):
+                tensor_image = torch.from_numpy(image)
+                tensor_image = tensor_image.permute(2, 0, 1)
+                tensor_image = tensor_image.unsqueeze(0)
+                return tensor_image[0]
+
+
+            img1_batch = torch.stack([to_tensor_image(self.prev_frame)])
+            img2_batch = torch.stack([to_tensor_image(frame)])
+            predicted_flow = self.optical_flow_model.get_optical_flow(img1_batch, img2_batch)
+            predicted_flow = predicted_flow.detach().cpu().numpy()  # (N, 2, H, W)
+
+            updated_vectors = []
+            for x_, y_ in p0:
+                x_, y_ = int(x_), int(y_)
+                x_vector = predicted_flow[0][0][x_][y_]
+                y_vector = predicted_flow[0][1][x_][y_]
+                updated_vectors.append([x_vector, y_vector])
+            return updated_vectors
+
 
     def update_optical_flow_anchors(self, frame: np.ndarray):
         """ Update previous anchor points using optical flow. 
@@ -63,33 +110,18 @@ class AnchorProcess:
         Args:
             frame (np.ndarray): 2D image from the current frame.
         """
-        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if self.prev_gray_frame.shape[0] == 0: # first frame
-            self.prev_gray_frame = frame_gray
+        if self.prev_frame.shape[0] == 0: # first frame
+            self.prev_frame = frame
             return
         if len(self.anchor_list) == 0:
             return
         
         keys_to_remove = []
-        # latest_point = list(self.anchor_list.keys())[0]
-        # p0 = self.anchor_list[latest_point]
+
         latest_point = list(self.random_anchor_list.keys())[0]
         p0 = self.random_anchor_list[latest_point]
 
-        # reshape according to optical flow lib's requirement
-        p0 = p0.reshape(p0.shape[0],1,p0.shape[1])
-        p1, st, err = cv2.calcOpticalFlowPyrLK(self.prev_gray_frame, frame_gray, p0, None, **self.lk_params)
-        good_new, good_old = [], []
-        if p1 is not None:
-            good_new = p1[st==1]
-            good_old = p0[st==1]
-
-        # Get updated position of anchor points
-        updated_vectors = []
-        for i, (new, old) in enumerate(zip(good_new, good_old)):
-            a, b = new.ravel()
-            c, d = old.ravel()
-            updated_vectors.append([a-c, b-d])
+        updated_vectors = self.get_updated_vectors(p0, frame)
 
         # Customize to update anchor points
         updated_vectors = np.array(updated_vectors)
@@ -103,7 +135,7 @@ class AnchorProcess:
             new_p = p0 + updated_vector
             adjusted_anchors = []
             for p in new_p:
-                if np.any(p < 0) or np.isnan(p).any():
+                if np.any(p < 0) or np.isnan(p).any() or p[0] >= frame.shape[1] or p[1] >= frame.shape[0]:
                     continue
                 adjusted_anchors.append(p)
             if len(adjusted_anchors) != 0:
@@ -120,7 +152,7 @@ class AnchorProcess:
             new_p = p0 + updated_vector
             adjusted_anchors = []
             for p in new_p:
-                if np.any(p < 0) or np.isnan(p).any():
+                if np.any(p < 0) or np.isnan(p).any() or p[0] >= frame.shape[1] or p[1] >= frame.shape[0]:
                     continue
                 adjusted_anchors.append(p)
             if len(adjusted_anchors) != 0:
@@ -133,7 +165,9 @@ class AnchorProcess:
             self.random_anchor_list.pop(k)
 
 
-        self.prev_gray_frame = frame_gray
+
+        self.prev_frame = frame
+        
 
     
     def reject_outliers(self, data, m = 2.):
@@ -144,7 +178,7 @@ class AnchorProcess:
             
             
     def update_anchor_points(self, frame_idx: int, frame: np.ndarray, frame_data: FrameData,
-                             lane_dividers: list, divider_type: str = 'segmentation'):
+                             lane_dividers: list):
         """ First, update previous anchor points using optical flow.
         Then, add new points if there are new intersection points with the lane dividers.
         Keep the anchor points as they are, if lane divider list is empty or there are not new intersection points found.
