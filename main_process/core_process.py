@@ -1,4 +1,4 @@
-from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, OPTICAL_FLOW_CONFIG
+from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, OPTICAL_FLOW_CONFIG, OPTICAL_FLOW_METHOD
 from model_caller.pose_model_caller import PoseCallerYOLO
 from model_caller.face_model_caller import FaceCallerYOLO
 from model_caller.seg_model_caller import SegCallerYOLO
@@ -19,6 +19,7 @@ from postprocess.speed_process import SpeedProcess
 from postprocess.anchor_process import AnchorProcess
 from postprocess.lane_divider_process import LaneDivider
 from typing import List
+import torch
 import numpy as np
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
@@ -34,14 +35,6 @@ class MainCalculation:
         self.frame_data_list: List[FrameData] = []
 
         self.RANDOM_COLORS = np.random.randint(0, 255, (100, 3))
-
-        self.stroke_process = StrokeProcess(fps=self.fps)
-        self.status_process = StatusProcess()
-        self.side_process = SideProcess()
-        self.direction_process = DirectionProcess()
-        self.speed_process = SpeedProcess(fps=self.fps)
-        self.anchor_process = AnchorProcess(window=self.fps*5)
-        self.lane_divider_process = LaneDivider()
 
         self.frame_data_list: List[FrameData] = []
 
@@ -66,10 +59,20 @@ class MainCalculation:
             logging.info('CUDA is available. Loading face model from ' + self.face_config['model_path'])
             logging.info('CUDA is available. Loading segmentation model from ' + self.seg_config['model_path'])
             logging.info('CUDA is available. Loading detection model from ' + self.detection_config['model_path'])
-            logging.info('CUDA is available. Loading detection model from ' + self.optical_flow_config['model_path'])
+            logging.info('CUDA is available. Loading optical flow model ' +  self.optical_flow_config['model_type'] + ' from PyTorch')
 
         else:
             logging.info('CUDA is not available. Using CPU instead.')
+
+
+        self.stroke_process = StrokeProcess(fps=self.fps)
+        self.status_process = StatusProcess()
+        self.side_process = SideProcess()
+        self.direction_process = DirectionProcess()
+        self.speed_process = SpeedProcess(fps=self.fps)
+        self.anchor_process = AnchorProcess(window=self.fps*5, method=OPTICAL_FLOW_METHOD, optical_flow_model=self.optical_flow_caller)
+        self.lane_divider_process = LaneDivider()
+
 
 
         
@@ -86,7 +89,6 @@ class MainCalculation:
             frame_data.red_marker = self.frame_data_list[-1].red_marker
         
         frame_data.frame_idx = frame_idx
-        lanes_segmentation = []
         lane_divider_bboxes = []
             
         # call models 
@@ -101,7 +103,6 @@ class MainCalculation:
                 # get one closest skeleton
                 frame_data.skeleton = frame_keypoints
                 frame_data.bbox = get_bbox(frame_data.skeleton[0])
-                # frame_data.bbox_area = swimmer_tracker.bbox_area.item()
                 frame_data.bbox_area = get_bbox_area(frame_data.bbox[0], frame_data.bbox[1], frame_data.bbox[2], frame_data.bbox[3])
                             
                 # TODO: get face (can be optimised)
@@ -153,7 +154,7 @@ class MainCalculation:
                             random_y = np.random.randint(0, frame.shape[0], NO_POINTS_SEGMENTATION)
                         self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
 
-                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lane_divider_bboxes, divider_type=self.lane_type)
+                    self.anchor_process.update_anchor_points(frame_idx, frame, frame_data, lane_divider_bboxes)
 
 
                     # calculate speed
@@ -170,6 +171,9 @@ class MainCalculation:
                     frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
 
 
+                
+
+
                         
             
         if torch.is_tensor(frame_data.skeleton):
@@ -179,7 +183,7 @@ class MainCalculation:
         self.frame_data_list.append(frame_data)
 
         annotated_frame = frame.copy()
-        annotated_frame = draw_keypoints(frame, frame_data.skeleton, thickness=2)
+        annotated_frame = draw_keypoints(annotated_frame, frame_data.skeleton, thickness=2)
         # if self.lane_type == 'segmentation':
             # annotated_frame = draw_segmentation(annotated_frame, lane_divider_bboxes)
         # elif self.lane_type == 'detection':
@@ -187,7 +191,7 @@ class MainCalculation:
 
         if debug:
             texts = frame_data.__str__()
-            annotated_frame = write_texts(frame, texts, 30, org=(30,30))
+            annotated_frame = write_texts(annotated_frame, texts, 30, org=(30,30))
 
         
         for k,v in self.anchor_process.anchor_list.items():
