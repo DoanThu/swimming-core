@@ -173,8 +173,9 @@ class MainCalculation:
 
         else:
             self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
-            frame_data.speed = self.frame_data_list[-1].speed
-            frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
+            if self.frame_data_list:
+                frame_data.speed = self.frame_data_list[-1].speed
+                frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
 
         self.prev_frame = frame
         
@@ -187,7 +188,7 @@ class MainCalculation:
         self.frame_data_list.append(frame_data)
 
         annotated_frame = frame.copy()
-        annotated_frame = draw_keypoints(annotated_frame, frame_data.skeleton, thickness=2)
+        annotated_frame = draw_keypoints(annotated_frame, frame_data.skeleton, thickness=1)
         # if self.lane_type == 'segmentation':
             # annotated_frame = draw_segmentation(annotated_frame, lane_divider_bboxes)
         # elif self.lane_type == 'detection':
