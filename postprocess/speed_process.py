@@ -2,7 +2,7 @@ import numpy as np
 from collections import OrderedDict
 from postprocess.data import FrameData, FrameDataConst
 import cv2
-from utils.color_utils import filter_red, filter_blue, filter_yellow
+from utils.color_utils import filter_red
 from scipy import signal
 import scipy
 
