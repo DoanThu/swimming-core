@@ -14,7 +14,7 @@ SEG_CONFIG = 'config/seg_model.yaml'
 DETECT_CONFIG = 'config/detect_model.yaml'
 FACE_CONFIG = 'config/face_model.yaml'
 OPTICAL_FLOW_CONFIG = 'config/optical_flow_model.yaml'
-OPTICAL_FLOW_METHOD = 'LK' # LK/RAFT
+OPTICAL_FLOW_METHOD = 'LK' # LK/RAFT/COLOR
 
 # Sytem 
 SAVE_AFTER_SECONDS = 5 
@@ -37,10 +37,6 @@ elif MODE in ['STREAMING', 'SOCKET']:
     SAVE_CSV_PATH = f'csv_files/{current_date_time}.csv'
     SAVE_VIDEO_PATH = f'saved_stream_videos/{current_date_time}_output.mp4'
 
-
-# Redis for STREAMING
-# DEFAULT_REDIS_PORT = 6379
-# DEFAULT_REDIS_HOST = 'localhost'
 
 # Convert pixels to meters
 D = 8 # drone height is 8m
