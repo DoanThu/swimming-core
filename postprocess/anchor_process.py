@@ -9,8 +9,7 @@ from utils.color_utils import filter_red
 
 
 class AnchorProcess:
-    def __init__(self, window: int = 60, method: str = 'LK', 
-                 optical_flow_model: OpticalFlowCaller = None):
+    def __init__(self, window: int = 60, method: str = 'LK'):
         # dictionary of time: adjusted anchors' coordinates
         self.anchor_list = OrderedDict()
         self.random_anchor_list = OrderedDict() # generated random anchor points to minimize the effect of water flow
@@ -18,7 +17,6 @@ class AnchorProcess:
         self.lk_params = {'winSize':(15, 15), 'maxLevel':2,
                            'criteria':(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)}
         self.method = method
-        self.optical_flow_model = optical_flow_model
         self.store_lane_dividers = []
 
 

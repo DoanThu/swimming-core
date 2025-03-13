@@ -1,12 +1,10 @@
-from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, OPTICAL_FLOW_CONFIG, OPTICAL_FLOW_METHOD
+from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT
 from model_caller.pose_model_caller import PoseCallerYOLO
 from model_caller.face_model_caller import FaceCallerYOLO
 from model_caller.seg_model_caller import SegCallerYOLO
 from model_caller.detection_model_caller import DetectionCallerYOLO
-from model_caller.optical_flow_model_caller import RAFTCaller
 import torch 
 import cv2 
-import time
 from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot, draw_detection
 from utils.file_utils import read_yaml
 from utils.skeleton_utils import get_valid_skeletons, get_bbox, get_bbox_area
@@ -42,16 +40,12 @@ class MainCalculation:
         self.face_config = read_yaml(FACE_CONFIG)
         self.seg_config = read_yaml(SEG_CONFIG)
         self.detection_config = read_yaml(DETECT_CONFIG)
-        self.optical_flow_config = read_yaml(OPTICAL_FLOW_CONFIG)
 
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.pose_caller = PoseCallerYOLO(self.pose_config['model_path'])
         self.face_caller = FaceCallerYOLO(self.face_config['model_path'])
         self.seg_caller = SegCallerYOLO(self.seg_config['model_path'])
         self.detect_caller = DetectionCallerYOLO(self.detection_config['model_path'])
-        self.optical_flow_caller = RAFTCaller(self.optical_flow_config['model_type'], device)
 
 
         if torch.cuda.is_available():
@@ -59,7 +53,6 @@ class MainCalculation:
             logging.info('CUDA is available. Loading face model from ' + self.face_config['model_path'])
             logging.info('CUDA is available. Loading segmentation model from ' + self.seg_config['model_path'])
             logging.info('CUDA is available. Loading detection model from ' + self.detection_config['model_path'])
-            logging.info('CUDA is available. Loading optical flow model ' +  self.optical_flow_config['model_type'] + ' from PyTorch')
 
         else:
             logging.info('CUDA is not available. Using CPU instead.')
@@ -70,7 +63,7 @@ class MainCalculation:
         self.side_process = SideProcess()
         self.direction_process = DirectionProcess()
         self.speed_process = SpeedProcess(fps=self.fps)
-        self.anchor_process = AnchorProcess(window=self.fps*5, method=OPTICAL_FLOW_METHOD, optical_flow_model=self.optical_flow_caller)
+        self.anchor_process = AnchorProcess(window=self.fps*5)
         self.lane_divider_process = LaneDivider()
 
 
