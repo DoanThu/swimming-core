@@ -16,6 +16,7 @@ from postprocess.direction_process import DirectionProcess
 from postprocess.speed_process import SpeedProcess
 from postprocess.anchor_process import AnchorProcess
 from postprocess.lane_divider_process import LaneDivider
+from postprocess.embedding_process import EmbeddingProcess
 from typing import List
 import torch
 import numpy as np
@@ -65,6 +66,7 @@ class MainCalculation:
         self.speed_process = SpeedProcess(fps=self.fps)
         self.anchor_process = AnchorProcess(window=self.fps*5)
         self.lane_divider_process = LaneDivider()
+        self.embedding_process = EmbeddingProcess()
 
 
         self.prev_frame = np.array([])
@@ -129,6 +131,9 @@ class MainCalculation:
             
             # TODO: fix left right swap
             # frame_data.skeleton = side_process.get_correct_side(frame_data.skeleton, frame_data)
+
+            # TODO: lower body embedding
+            self.embedding_process.get_embeddings(frame, frame_data)
                 
             if frame_idx % FREQ_SEGMENT == 0: # do the following every FREQ_SEGMENT frames
                 if self.lane_type == 'segmentation':
