@@ -24,6 +24,10 @@ def draw_keypoints(image:np.ndarray, keypoints:torch.Tensor, thickness:int=1) ->
         for i,v in enumerate(SKELETON):
             for j in v:
                 _from, _to = j[0], j[1]
+                if _keypoints[_from][0] == 0 and _keypoints[_from][1] == 0:
+                    continue
+                if _keypoints[_to][0] == 0 and _keypoints[_to][1] == 0:
+                    continue
                 cv2.line(image, (int(_keypoints[_from][0]), int(_keypoints[_from][1])),
                         (int(_keypoints[_to][0]), int(_keypoints[_to][1])), colors[i], thickness=thickness)
     return image

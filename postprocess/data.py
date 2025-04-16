@@ -44,7 +44,7 @@ class FrameData(SuperDataClass):
     status: int = FrameDataConst.READY
     reach_marker: bool = False
     skeleton: list = field(default_factory=list)
-    bbox: torch.Tensor = torch.Tensor(0, 4) # xmin, ymin, xmax, ymax
+    bbox: torch.Tensor = torch.Tensor(0, 4) # bbox of the skeleton (xmin, ymin, xmax, ymax)
     bbox_area: float = FrameDataConst.UNKNOWN
     stroke: int = FrameDataConst.UNKNOWN
     stroke_count: int = 0

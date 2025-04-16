@@ -13,10 +13,10 @@ if __name__ == '__main__':
     ap.add_argument("--mode", type=str, help="mode can be VIDEO/SOCKET", required=True)
     args = vars(ap.parse_args())
 
-    logging.info(f'RUNNING IN {args['mode']} MODE ' + '---'*5)
+    logging.info(f"RUNNING IN {args['mode']} MODE " + '---'*5)
     if args['mode'] == 'VIDEO':
-        run_video(debug=False, save_json=False, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1], lane_type='segmentation')
+        run_video(debug=True, save_json=False, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
     elif args['mode'] == 'SOCKET':
-        run_socket(debug=False, save_json=False, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1], lane_type='segmentation')
+        run_socket(debug=False, save_json=False, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
     
    

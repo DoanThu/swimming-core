@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+from postprocess.data import FrameDataConst
+
 
 def is_valid_skeleton(skeleton:torch.Tensor) -> bool:
     """ Return if the skeleton is valid.
@@ -60,3 +62,18 @@ def get_bbox(points:torch.Tensor) -> torch.Tensor:
     xmin, ymin = points.min(axis=0).values
     xmax, ymax = points.max(axis=0).values
     return torch.Tensor([xmin, ymin, xmax, ymax])
+
+def get_mid_skeleton(skeletons:torch.Tensor, frame_orientation: int, reference_line: int) -> torch.Tensor:
+    joint_idx = 0
+    if frame_orientation == FrameDataConst.HORIZONTAL:
+        joints = skeletons[:, joint_idx, 1]
+    elif frame_orientation == FrameDataConst.VERTICAL:
+        joints = skeletons[:, joint_idx, 0] 
+
+    # Compute distances to the target line
+    distances = torch.abs(joints - reference_line)
+
+    # Find the closest skeleton
+    closest_index = distances.argmin()
+
+    return skeletons[closest_index].unsqueeze(0) 

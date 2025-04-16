@@ -17,14 +17,14 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
 
 frame_data_list: List[FrameData] = []
 
-def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1, lane_type='segmentation'):
+def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1):
     cap = cv2.VideoCapture(VIDEO_PATH)
     if fx < 1 and fy < 1:
         frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
     else:
         frame_width, frame_height = fx, fy
 
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    fps = round(cap.get(cv2.CAP_PROP_FPS))
     frame_idx = -1
 
     if not os.path.exists(os.path.dirname(out_video)):
@@ -32,7 +32,7 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
     output = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*'MP4V'),
                              fps//FPS_RATE, (frame_width, frame_height))
     
-    logging.info(f'frame_width={frame_width}, frame_height={frame_width}, fps = {fps}')
+    logging.info(f'frame_width={frame_width}, frame_height={frame_height}, fps = {fps}')
 
     if save_csv:
         if os.path.exists(SAVE_CSV_PATH):
@@ -42,7 +42,7 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
 
     
     
-    calculate_frame = MainCalculation(fps, lane_type=lane_type)
+    calculate_frame = MainCalculation(fps)
     extractParams = ExtractParams()
 
     prev_features_list = []
