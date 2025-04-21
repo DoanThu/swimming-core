@@ -11,7 +11,7 @@ class SpeedProcess:
         self.current_speed = FrameDataConst.UNKNOWN
         self.pct_change = FrameDataConst.UNKNOWN
         self.fps = fps
-        self.frame_window = self.fps//2
+        self.frame_window = self.fps
         self.red_marker = False # to check if the head is at the red marker
         
         
@@ -30,15 +30,11 @@ class SpeedProcess:
         if len(anchor_list) < 2: return
         times = list(anchor_list.keys()) # times are already sorted
 
-        # print(anchor_list)
-        # print(self.fps, self.frame_window)
-        
         # get begin and end time to calculate speed
         current_anchor = anchor_list[times[-1]][0]
         for i in range(len(times), -1, -1):
             if times[-1]-times[i-1] > self.frame_window: break
         past_anchor = anchor_list[times[i]][0]
-        # print(times[-1], times[i])
         if times[-1] == times[i]: return 
 
         
