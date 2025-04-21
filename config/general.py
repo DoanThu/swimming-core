@@ -13,7 +13,6 @@ SEG_CONFIG = 'config/seg_model.yaml'
 DETECT_CONFIG = 'config/detect_model.yaml'
 FACE_CONFIG = 'config/face_model.yaml'
 OPTICAL_FLOW_CONFIG = 'config/optical_flow_model.yaml'
-OPTICAL_FLOW_METHOD = 'LK' # LK/RAFT/COLOR
 
 # Sytem 
 SAVE_AFTER_SECONDS = 5 
@@ -41,9 +40,8 @@ elif SAVE_MODE in ['STREAMING', 'SOCKET']:
 D = 8 # drone height is 8m
 SENSOR_SIZE = (17.3/1000, 13.3/1000) # 17.3 x 13 mm
 F = 24/1000 # focal length 24mm
+# F = 10.26/1000 # actual focal length 10.26mm
 RESOLUTION = (900, 600) # resize of 5472, 3648
-# RESOLUTION = (660, 440) # resize of 5472, 3648
-# RESOLUTION = (480, 320) # resize of 5472, 3648, should divisible by 8 if RAFT is used
 PIXEL_DENSITY_WIDTH = RESOLUTION[0]/SENSOR_SIZE[0]
 PIXEL_DENSITY_HEIGHT = RESOLUTION[1]/SENSOR_SIZE[1]
 REAL_SIZE_WIDTH = D/(F*PIXEL_DENSITY_WIDTH) # size of 1 pixel in meter
