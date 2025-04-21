@@ -127,7 +127,10 @@ def draw_detection(image:np.ndarray, list_boxes: list,
 
 
 def draw_dot(image:np.ndarray, dots:np.ndarray,
-             radius=2, color=(0,0,255), thickness=-1) -> np.ndarray:
+             radius=2, color=(0,0,255), thickness=-1, 
+             frame_idx='', font:str=cv2.FONT_HERSHEY_SIMPLEX, 
+             font_scale:int=0.5, thickness_txt:int=1
+             ) -> np.ndarray:
     """ Draw multiple dots on image
 
     Args:
@@ -140,9 +143,14 @@ def draw_dot(image:np.ndarray, dots:np.ndarray,
     Returns:
         np.ndarray: image with dots
     """
-    for dot in dots:
+    for i,dot in enumerate(dots):
         x, y = int(dot[0]),int(dot[1])
         image = cv2.circle(image, (x, y), radius=radius, color=color, thickness=thickness)
+
+        if frame_idx == '': continue
+        # draw time on the dot
+        cv2.putText(image, frame_idx, (x, y-10), font, fontScale=font_scale, color=color, thickness=thickness_txt)
+
     return image
 
 

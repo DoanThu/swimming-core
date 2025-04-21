@@ -1,4 +1,4 @@
-from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, REAL_SIZE_HEIGHT, REAL_SIZE_WIDTH
+from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, PIXEL_DENSITY_WIDTH, PIXEL_DENSITY_HEIGHT
 from model_caller.pose_model_caller import PoseCallerYOLO
 from model_caller.face_model_caller import FaceCallerYOLO
 from model_caller.seg_model_caller import SegCallerYOLO
@@ -32,7 +32,8 @@ class MainCalculation:
                 if lane1 <= skeleton[0][axis] <= lane2:
                     count += 1
             return count == 1
-        
+        if len(self.pixel_to_meters) > 0: return
+
         distances = []
 
         if frame_orientation == FrameDataConst.HORIZONTAL:
@@ -55,7 +56,7 @@ class MainCalculation:
                 distance = x2 - x1
                 if distance < 30: continue
                 distances.append(distance)
-        temp = np.mean(distances)/2.5
+        temp = np.mean(distances)/2.5*PIXEL_DENSITY_HEIGHT/PIXEL_DENSITY_WIDTH
         if len(self.pixel_to_meters) == 0:
             self.pixel_to_meters.append(temp)
         else:
@@ -131,7 +132,6 @@ class MainCalculation:
             lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
             direction = sum([1 if w > h else -1 for _,_,w,h in lane_divider_bboxes])
             frame_data.frame_orientation = FrameDataConst.HORIZONTAL if direction >= 0 else FrameDataConst.VERTICAL
-
             
         # call models 
         frame_keypoints = self.pose_caller.get_keypoint(frame, **self.pose_config['inference'])
@@ -195,20 +195,23 @@ class MainCalculation:
                 # calculate speed
                 self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
                                                     lane_divider_bboxes) # return speed in pixels
-                frame_data.speed = self.speed_process.current_speed/np.mean(self.pixel_to_meters) # convert to meters
+                frame_data.speed_px = self.speed_process.current_speed
+                frame_data.speed_m = frame_data.speed_px/np.mean(self.pixel_to_meters) # convert to meters
                 frame_data.speed_pct_change = self.speed_process.pct_change
                 frame_data.red_marker = self.speed_process.red_marker
                 updated_speed = True
 
             else:
                 self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
-                frame_data.speed = self.frame_data_list[-1].speed
+                frame_data.speed_m = self.frame_data_list[-1].speed_m
+                frame_data.speed_px = self.frame_data_list[-1].speed_px
                 frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
 
         else:
             self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
             if self.frame_data_list:
-                frame_data.speed = self.frame_data_list[-1].speed
+                frame_data.speed_m = self.frame_data_list[-1].speed_m
+                frame_data.speed_px = self.frame_data_list[-1].speed_px
                 frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
 
         self.prev_frame = frame
@@ -231,8 +234,13 @@ class MainCalculation:
 
         
         for k,v in self.anchor_process.anchor_list.items():
+            if debug:
+                frame_idx_ = str(k)
+            else:
+                frame_idx_ = ''
             annotated_frame = draw_dot(annotated_frame, v, 
-                                        color=self.RANDOM_COLORS[k%len(self.RANDOM_COLORS)].tolist(), radius=4)
+                                        color=self.RANDOM_COLORS[k%len(self.RANDOM_COLORS)].tolist(), radius=4,
+                                        frame_idx=frame_idx_)
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
             self.frame_data_list.pop(0)
