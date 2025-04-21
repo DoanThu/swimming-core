@@ -52,7 +52,8 @@ class FrameData(SuperDataClass):
     
     # speed info 
     period_index: int = FrameDataConst.UNKNOWN
-    speed: float = FrameDataConst.UNKNOWN
+    speed_m: float = FrameDataConst.UNKNOWN # speed in meters
+    speed_px: float = FrameDataConst.UNKNOWN # speed in pixels
     speed_pct_change: float = FrameDataConst.UNKNOWN
     red_marker: bool = False
      
@@ -69,8 +70,9 @@ class FrameData(SuperDataClass):
         """
         direction_str = f'direction:{FrameDataConst.MAP_DIRECTION[self.direction]}'
         status_str = f'status:{FrameDataConst.MAP_STATUS[self.status]}'
-        speed_str = f'speed:{self.speed:.2f}'
+        speed_m_str = f'speed_m:{self.speed_m:.2f}'
+        speed_px_str = f'speed_px:{self.speed_px:.2f}'
         pct_change_str = f'pct_change:{self.speed_pct_change:+.2f}'
         orientation_str = f'orientation:{FrameDataConst.MAP_ORIENTATION[self.frame_orientation]}'
         red_marker_str = f'red_marker:{self.red_marker}'
-        return [speed_str, pct_change_str]
+        return [speed_m_str, speed_px_str, pct_change_str]
