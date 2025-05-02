@@ -69,7 +69,8 @@ def get_bbox(skeleton:torch.Tensor) -> torch.Tensor:
 
     # xmin, ymin = skeleton.min(axis=0).values
     # xmax, ymax = skeleton.max(axis=0).values
-    return torch.Tensor([xmin, ymin, xmax, ymax])
+    # return torch.Tensor([xmin, ymin, xmax, ymax])
+    return [xmin, ymin, xmax-xmin, ymax-ymin]
 
 def get_mid_skeleton_old(skeletons:torch.Tensor, frame_orientation: int, reference_line: int) -> torch.Tensor:
     joint_idx = 0
