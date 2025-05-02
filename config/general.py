@@ -17,11 +17,11 @@ OPTICAL_FLOW_CONFIG = 'config/optical_flow_model.yaml'
 # Sytem 
 SAVE_AFTER_SECONDS = 5 
 SAVE_JSON_PATH = 'frame_info/interval_{}.json'
-SAVE_CSV_COLUMNS = ['timestamp', 'speed', 'speed_pct_change', 'pct_dist_changes', 'angle_changes']
+SAVE_CSV_COLUMNS = ['timestamp', 'field', 'value']
 
 # For VIDEO
-FILENAME = 'DJI_0221.MP4'
-VIDEO_PATH = f'videos/speed/{FILENAME}' 
+FILENAME = 'DJI_0161.MP4'
+VIDEO_PATH = f'videos/2025/2025Mar19_resized/{FILENAME}' 
 
 # For STREAMING/SOCKET
 # DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
@@ -40,8 +40,8 @@ elif SAVE_MODE in ['STREAMING', 'SOCKET']:
 D = 8 # drone height is 8m
 SENSOR_SIZE = (17.3/1000, 13.3/1000) # 17.3 x 13 mm
 F = 24/1000 # focal length 24mm
-# F = 10.26/1000 # actual focal length 10.26mm
-RESOLUTION = (900, 600) # resize of 5472, 3648
+# RESOLUTION = (900, 600) # resize of 5472, 3648
+RESOLUTION = (600, 400) # resize of 5472, 3648
 PIXEL_DENSITY_WIDTH = RESOLUTION[0]/SENSOR_SIZE[0]
 PIXEL_DENSITY_HEIGHT = RESOLUTION[1]/SENSOR_SIZE[1]
 REAL_SIZE_WIDTH = D/(F*PIXEL_DENSITY_WIDTH) # size of 1 pixel in meter

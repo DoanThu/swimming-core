@@ -5,6 +5,7 @@ from model_caller.seg_model_caller import SegCallerYOLO
 from model_caller.detection_model_caller import DetectionCallerYOLO
 import torch 
 import cv2 
+from utils.lane_segment_utils import get_ground, bbox_overlap_or_near
 from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot, draw_detection
 from utils.file_utils import read_yaml
 from utils.skeleton_utils import get_valid_skeletons, get_bbox, get_bbox_area, get_mid_skeleton
@@ -115,6 +116,7 @@ class MainCalculation:
             self.prev_frame = frame
 
         updated_speed = False 
+        overlap = False
 
         frame_data = FrameData()
     
@@ -135,15 +137,19 @@ class MainCalculation:
             
         # call models 
         frame_keypoints = self.pose_caller.get_keypoint(frame, **self.pose_config['inference'])
-        # if nothing detected, its shape is (N,0,51), the valid skeletons return (0, 17, 2)
+        # if nothing detected, its shape is (N,0,51), the valid skeletons return (0, 17,32)
         if frame_keypoints.shape[1] != 0:
             # and get_valid_skeletons(frame_keypoints).shape[0] != 0:
             # get one closest skeleton
-            if frame_data.frame_orientation == FrameDataConst.HORIZONTAL:
-                reference_line = frame.shape[0] // 2
-            elif frame_data.frame_orientation == FrameDataConst.VERTICAL:
-                reference_line = frame.shape[1] // 2
-            selected_skeleton = get_mid_skeleton(frame_keypoints, frame_data.frame_orientation, reference_line)
+
+            # if frame_data.frame_orientation == FrameDataConst.HORIZONTAL:
+                # reference_line = frame.shape[0] // 2
+            # elif frame_data.frame_orientation == FrameDataConst.VERTICAL:
+                # reference_line = frame.shape[1] // 2
+
+            selected_skeleton = get_mid_skeleton(frame_keypoints, frame_data.frame_orientation, width=frame.shape[1], height=frame.shape[0])
+        
+        if  frame_keypoints.shape[1] != 0 and selected_skeleton.shape[0] != 0: 
             frame_data.skeleton = selected_skeleton
             frame_data.bbox = get_bbox(frame_data.skeleton[0])
             frame_data.bbox_area = get_bbox_area(frame_data.bbox[0], frame_data.bbox[1], frame_data.bbox[2], frame_data.bbox[3])
@@ -151,7 +157,12 @@ class MainCalculation:
             if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every 10*FREQ_SEGMENT frames
                 self.convert_pixel_to_meter(lane_divider_bboxes, frame_data.frame_orientation, frame_keypoints)
 
-                            
+            bbox_ground = get_ground(frame)
+            if bbox_ground[0] != -1 and frame_data.bbox[0] != -1:
+                overlap = bbox_overlap_or_near(frame_data.bbox, bbox_ground, threshold=30)
+            else:
+                overlap = False
+
             # TODO: get face (can be optimised)
             # face_bboxes = self.face_caller.get_face(frame, **self.face_config['inference'])
             # face_bbox = self.stroke_process.match_face(frame_data.skeleton, face_bboxes)
@@ -167,7 +178,7 @@ class MainCalculation:
                                                                 # previous_interval=self.fps*3)
             
             # count stroke
-            frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
+            # frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
             
             # TODO: classify stroke
             # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)
@@ -190,7 +201,6 @@ class MainCalculation:
                     self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
 
                 self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, lane_divider_bboxes)
-
 
                 # calculate speed
                 self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
@@ -245,5 +255,5 @@ class MainCalculation:
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
             self.frame_data_list.pop(0)
             
-        return annotated_frame, frame_data, updated_speed
+        return annotated_frame, frame_data, updated_speed, overlap
     

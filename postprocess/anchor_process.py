@@ -129,7 +129,7 @@ class AnchorProcess:
         # note the np.float32 too
 
         # Updated previous anchors 
-        # And remove out-of-sight anchors in anchor list (negative coordinates)
+        # And remove out-of-sight anchors in anchor list (negative coordinates or out of frame)
         self.update_optical_flow_anchors(frame, previous_frame, frame_data, lane_dividers)
         
 
