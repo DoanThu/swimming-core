@@ -1,5 +1,6 @@
 import numpy as np 
 from collections import defaultdict
+from config.general import REAL_SIZE_HEIGHT, REAL_SIZE_WIDTH
 
 class ExtractParams:
     MAP_KEYPOINTS = {0:'nose', 1:'leye', 2:'reye', 3:'lear', 4:'rear', 5:'lshoulder', 6:'rshoulder', 7:'lelbow', 8:'relbow',
@@ -16,7 +17,7 @@ class ExtractParams:
         self.pct_angle_changes = {}
 
     def distance(self,ax,ay,bx,by):
-        return np.sqrt((ax-bx)**2+(ay-by)**2)
+        return np.sqrt(((ax-bx)*REAL_SIZE_WIDTH)**2+((ay-by)*REAL_SIZE_HEIGHT)**2)
     
     def angle(self,ax,ay,bx,by,cx,cy):
         import math
@@ -36,8 +37,6 @@ class ExtractParams:
                 colname = self.MAP_KEYPOINTS[i] + '_' + self.MAP_KEYPOINTS[j]
                 final_res[colname] = self.distance(ax,ay,bx,by)
         return final_res
-    
-
 
     
     def extract_angle_features(self, skeleton):

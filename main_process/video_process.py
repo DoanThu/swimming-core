@@ -91,7 +91,6 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
 
 
                         if save_csv:
-                            # data =  second_to_time_str(frame_idx/fps) + ',' + str(frame_data.speed_m) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
                             data =  second_to_time_str(frame_idx/fps) + ',' + 'speed' + ',' + str(frame_data.speed_m) 
                             write_to_csv(data, save_csv_path)
                         

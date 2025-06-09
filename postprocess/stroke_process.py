@@ -5,6 +5,7 @@ from postprocess.data import FrameData, FrameDataConst
 import math
 from config.general import FPS_RATE
 from scipy.signal import find_peaks, savgol_filter
+from postprocess.analytics import ExtractParams
 
 
 class StrokeProcess:
@@ -91,53 +92,49 @@ class StrokeProcess:
         return FrameDataConst.FREESTYLE
 
 
-    def count_stroke(self, frame_data_list: List[FrameData],
-                    threshold_status:float=0.8):
+    def count_stroke(self, frame_data_list: List[FrameData]):
         
         if len(frame_data_list) < self.time_window: 
             return 0
         
-        overall_status = [1 if _frame.status != FrameDataConst.STOP else 0 for _frame in frame_data_list[-self.time_window:]]
-        if np.mean(overall_status) < threshold_status: 
-            return 0
+        # overall_status = [1 if _frame.status != FrameDataConst.STOP else 0 for _frame in frame_data_list[-self.time_window:]]
+        # if np.mean(overall_status) < threshold_status: 
+            # return 0
 
-        dist_wrist_wrist = []
+        dist_wrist_head = []
+        extractParams = ExtractParams()
+
         for _frame in frame_data_list[-self.time_window:]:
             skeleton = _frame.skeleton
             if len(skeleton) == 0:
                 continue
-            left_wrist, right_wrist = skeleton[0][9], skeleton[0][10]
-            dist_wrist_wrist.append(self.get_length(left_wrist, right_wrist))
+            left_wrist, head = skeleton[0][9], skeleton[0][0]
+            real_distance = extractParams.distance(left_wrist[0], left_wrist[1], head[0], head[1])
+            dist_wrist_head.append(real_distance) 
 
-        if len(dist_wrist_wrist) < self.time_window: return 0
-        dist_wrist_wrist = savgol_filter(dist_wrist_wrist, 51, 3) # window size 51, polynomial order 3
-        # dist_wrist_wrist = (dist_wrist_wrist - np.min(dist_wrist_wrist)) / (np.max(dist_wrist_wrist) - np.min(dist_wrist_wrist)) # scale between 0-1
+        if len(dist_wrist_head) < self.time_window: return 0
+        # dist_wrist_wrist = savgol_filter(dist_wrist_wrist, 51, 3) # window size 51, polynomial order 3
+
+        def count_stroke(head_to_wrist_list):
+            from scipy.signal import find_peaks
+            if not head_to_wrist_list: return 0
+            highest_peak, lowest_peak = max(head_to_wrist_list), min(head_to_wrist_list)
+            # print(f'Highest peak = {highest_peak}, lowest peak = {lowest_peak}')
+            if highest_peak - lowest_peak < 0.3: # if no peak detected
+                return 0
+            peaks, _ = find_peaks(head_to_wrist_list, height=highest_peak*0.9, distance=10) # 10 frames apart
+            return len(peaks)
 
 
-        i_peaks, _ = find_peaks(dist_wrist_wrist, height=0.8, distance=self.fps//FPS_RATE//2) # distance = 0.5s
+        # i_peaks, _ = find_peaks(dist_wrist_wrist, height=0.8, distance=self.fps//FPS_RATE//2) # distance = 0.5s
+        stroke_no = count_stroke(dist_wrist_head)
         duration_in_seconds = self.time_window/(self.fps//FPS_RATE)
         # print(f'len i peak = {len(i_peaks)}')
         # print(f'duration_in_seconds = {duration_in_seconds}')
-        stroke_count = int(len(i_peaks)*60/duration_in_seconds)
-        return stroke_count if stroke_count < 100 else 0 # stroke per minute
+        stroke_rate = stroke_no*60/duration_in_seconds
+        return stroke_rate # stroke per minute
 
 
 
-        # f = self.fps//FPS_RATE
-        # T = 1/f
-        # yf = abs(np.fft.fft(dist_lwrist_nose)) # to normalize use norm='ortho' as an additional argument
-        # freq = np.fft.fftfreq(self.time_window, d=T)
-
-        # Find peaks
-        # i_peaks, _ = find_peaks(yf[:self.time_window//2])
-        # Find the index from the maximum peak
-        # i_max_peak = i_peaks[np.argmax(yf[i_peaks])]
-
-
-        # max_freq = freq[i_max_peak]
-        # print(f'len(yf)={len(yf)}')
-        # print(f'i_max_peak={i_max_peak}, max_freq={max_freq}')
-
-        # return int(1/max_freq*60) # convert stroker/s to stroke/minute
 
                 

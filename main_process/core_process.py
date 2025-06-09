@@ -180,7 +180,7 @@ class MainCalculation:
                                                                 # previous_interval=self.fps*3)
             
             # count stroke
-            # frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
+            frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
             
             # TODO: classify stroke
             # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)

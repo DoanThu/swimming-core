@@ -16,10 +16,11 @@ if __name__ == '__main__':
 
     logging.info(f"RUNNING IN {args['mode']} MODE " + '---'*5)
     if args['mode'] == 'VIDEO':
-        for file in os.listdir('videos/2025/2025Mar18_resized'):
+        path = 'videos/2025/2025Mar22_resized'
+        for file in os.listdir(path):
             if file[-3:] != 'MP4': continue 
             if file[0] == '.': continue
-            full_path = f'videos/2025/2025Mar18_resized/{file}'
+            full_path = f'{path}/{file}'
             run_video(debug=True, video_path=full_path, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
     elif args['mode'] == 'SOCKET':
         run_socket(debug=False, save_json=False, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
