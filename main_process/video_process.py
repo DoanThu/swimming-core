@@ -1,4 +1,4 @@
-from config.general import SAVE_AFTER_SECONDS, SAVE_JSON_PATH, SAVE_CSV_PATH, VIDEO_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS
+from config.general import SAVE_AFTER_SECONDS, VIDEO_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS
 import cv2 
 from utils.file_utils import write_to_csv, write_json
 from postprocess.data import FrameData
@@ -36,9 +36,12 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
     logging.info(f'frame_width={frame_width}, frame_height={frame_height}, fps = {fps}')
 
     if save_csv:
-        if os.path.exists(SAVE_CSV_PATH):
-            os.remove(SAVE_CSV_PATH)
-        write_to_csv(','.join(SAVE_CSV_COLUMNS), SAVE_CSV_PATH)
+        filename = video_path.split('/')[-1].split('.')[0]
+        print(video_path)
+        save_csv_path = f"csv_files/{filename}.csv"
+        if os.path.exists(save_csv_path):
+            os.remove(save_csv_path)
+        write_to_csv(','.join(SAVE_CSV_COLUMNS), save_csv_path)
         
 
     
@@ -54,9 +57,6 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
 
 
     while cap.isOpened():
-        # if frame_idx > 60*5: 
-            # print(frame_idx)
-            # break
         try:
             ret, frame = cap.read()
             if ret:
@@ -91,9 +91,8 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
 
 
                         if save_csv:
-                            # data =  second_to_time_str(frame_idx/fps) + ',' + str(frame_data.speed_m) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
                             data =  second_to_time_str(frame_idx/fps) + ',' + 'speed' + ',' + str(frame_data.speed_m) 
-                            write_to_csv(data, SAVE_CSV_PATH)
+                            write_to_csv(data, save_csv_path)
                         
                         prev_features_list = cur_features_list
                         cur_features_list = []
@@ -108,7 +107,7 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
                 
             else:
                 if save_csv:
-                    logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
+                    logging.info(f'Saved csv file to {save_csv_path}')
 
                 cap.release()
                 output.release()
@@ -126,7 +125,7 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
     # Lap time
     laptime_process = LapTime()
     overlap_list = laptime_process.remove_short_peaks(overlap_list)
-    laptimes = laptime_process.find_zero_segments(overlap_list, fps=fps)
+    laptimes = laptime_process.find_zero_segments(overlap_list, fps=fps//2)
     laptimes_arr = []
     for i,r in enumerate(laptimes):
         if i == 0:
@@ -139,7 +138,7 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
     if save_csv:
         laptimes_arr_str = [str(i) for i in laptimes_arr]
         data =  '-1' + ',' + 'lap_times' + ',' + ','.join(laptimes_arr_str)
-        write_to_csv(data, SAVE_CSV_PATH)
+        write_to_csv(data, save_csv_path)
 
     # Stroke count
     from model_caller.stroke_classification_caller import StrokeClassificationCaller
@@ -148,6 +147,7 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
     for i in range(0,len(laptimes_arr),2):
         start_idx = int(laptimes_arr[i]*30)
         end_idx = int(laptimes_arr[i+1]*30)
+        print(start_idx, end_idx)
         skeletons = [frame.skeleton[0] for frame in frame_data_list[start_idx:end_idx]]
         stroke_type = stroke_classification_caller.inference(skeletons)
         skeletons = flip_skeletons(skeletons)
@@ -161,10 +161,10 @@ def run_video(debug=False, video_path=VIDEO_PATH, save_csv=False, out_video=SAVE
     if save_csv:
         stroke_count_list_str = [str(i) for i in stroke_count_list] 
         data =  '-1' + ',' + 'stroke_count' + ',' + ','.join(stroke_count_list_str)
-        write_to_csv(data, SAVE_CSV_PATH)
+        write_to_csv(data, save_csv_path)
     
     if save_csv:
-        logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
+        logging.info(f'Saved csv file to {save_csv_path}')
    
 
 

@@ -128,6 +128,7 @@ class MainCalculation:
         
         frame_data.frame_idx = frame_idx
         lane_divider_bboxes = []
+        bbox_ground = []
 
          # get full lane divider for frame orientation
         if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every 10*FREQ_SEGMENT frames
@@ -151,15 +152,16 @@ class MainCalculation:
         
         if  frame_keypoints.shape[1] != 0 and selected_skeleton.shape[0] != 0: 
             frame_data.skeleton = selected_skeleton
-            frame_data.bbox = get_bbox(frame_data.skeleton[0])
-            frame_data.bbox_area = get_bbox_area(frame_data.bbox[0], frame_data.bbox[1], frame_data.bbox[2], frame_data.bbox[3])
+            frame_data.bbox = get_bbox(frame_data.skeleton[0]) # x y w h
+            # frame_data.bbox_area = get_bbox_area(frame_data.bbox[0], frame_data.bbox[1], frame_data.bbox[2], frame_data.bbox[3])
+            frame_data.bbox_area = frame_data.bbox[2] * frame_data.bbox[3]
 
             if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every 10*FREQ_SEGMENT frames
                 self.convert_pixel_to_meter(lane_divider_bboxes, frame_data.frame_orientation, frame_keypoints)
 
-            bbox_ground = get_ground(frame)
+            bbox_ground = get_ground(frame) # x y w h
             if bbox_ground[0] != -1 and frame_data.bbox[0] != -1:
-                overlap = bbox_overlap_or_near(frame_data.bbox, bbox_ground, threshold=30)
+                overlap = bbox_overlap_or_near(frame_data.bbox, bbox_ground, threshold=20)
             else:
                 overlap = False
 
@@ -178,7 +180,7 @@ class MainCalculation:
                                                                 # previous_interval=self.fps*3)
             
             # count stroke
-            # frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
+            frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
             
             # TODO: classify stroke
             # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)
@@ -230,7 +232,7 @@ class MainCalculation:
             
         if torch.is_tensor(frame_data.skeleton):
             frame_data.skeleton = frame_data.skeleton.cpu().numpy().tolist()
-        frame_data.bbox = [_coord.item() for _coord in frame_data.bbox]
+        # frame_data.bbox = [i for i in frame_data.bbox]
         # append current frame to list
         self.frame_data_list.append(frame_data)
 
@@ -239,6 +241,8 @@ class MainCalculation:
 
         if debug:
             annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes)
+            if len(bbox_ground) != 0 and bbox_ground[0] != -1:
+                annotated_frame = draw_detection(annotated_frame, [bbox_ground])
             texts = frame_data.__str__()
             annotated_frame = write_texts(annotated_frame, texts, 30, org=(30,30))
 

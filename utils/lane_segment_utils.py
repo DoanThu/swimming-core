@@ -94,7 +94,7 @@ def get_ground(img):
     contours, _ = cv2.findContours(mask_cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # Filter out small contours (e.g., people, noise)
-    min_area = 5000
+    min_area = 3000
     filtered = [cnt for cnt in contours if cv2.contourArea(cnt) > min_area]
 
     # Combine contours into one bounding box
