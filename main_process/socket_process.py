@@ -35,7 +35,7 @@ def param_visualization(d_distances, d_angles):
     angle_visualization = get_first_k({feature:d_angles[feature] for feature in angle_feature_list},5)
     return dist_visualization, angle_visualization
 
-def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1.0, fy=1.0, lane_type='segmentation'):
+def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'], fx=1.0, fy=1.0, lane_type='segmentation'):
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     host = socket.gethostname()
     port = 9999
@@ -128,7 +128,7 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
 
                                     if save_csv:
                                         data =  second_to_time_str(frame_idx/fps) + ',' + str(swimming_speed) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
-                                        write_to_csv(data, SAVE_CSV_PATH)
+                                        write_to_csv(data, SAVE_CSV_PATH['SOCKET'])
 
                                     prev_features_list = cur_features_list
                                     cur_features_list = []
@@ -136,8 +136,8 @@ def run_socket(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDE
                                 send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, 
                                                               frame, sub_frame_data, dist_visualization, angle_visualization]) # size = 6
 
-                            # if out_video:
-                                # output.write(annotated_frame)
+                            if out_video:
+                                output.write(annotated_frame)
 
 
                         else:

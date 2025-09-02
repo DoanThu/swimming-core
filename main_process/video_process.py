@@ -1,4 +1,4 @@
-from config.general import SAVE_AFTER_SECONDS, SAVE_JSON_PATH, SAVE_CSV_PATH, VIDEO_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS
+from config.general import SAVE_AFTER_SECONDS, SAVE_CSV_PATH, VIDEO_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS
 import cv2 
 from utils.file_utils import write_to_csv, write_json
 from postprocess.data import FrameData
@@ -17,7 +17,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
 
 frame_data_list: List[FrameData] = []
 
-def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO_PATH, fx=1, fy=1, lane_type='segmentation'):
+def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], fx=1, fy=1, lane_type='segmentation'):
     cap = cv2.VideoCapture(VIDEO_PATH)
     if fx < 1 and fy < 1:
         frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
@@ -32,12 +32,12 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
     output = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*'MP4V'),
                              fps//FPS_RATE, (frame_width, frame_height))
     
-    logging.info(f'frame_width={frame_width}, frame_height={frame_width}, fps = {fps}')
+    logging.info(f'frame_width={frame_width}, frame_height={frame_height}, fps = {fps}')
 
     if save_csv:
-        if os.path.exists(SAVE_CSV_PATH):
-            os.remove(SAVE_CSV_PATH)
-        write_to_csv(','.join(SAVE_CSV_COLUMNS), SAVE_CSV_PATH)
+        if os.path.exists(SAVE_CSV_PATH['VIDEO']):
+            os.remove(SAVE_CSV_PATH['VIDEO'])
+        write_to_csv(','.join(SAVE_CSV_COLUMNS), SAVE_CSV_PATH['VIDEO'])
         
 
     
@@ -81,7 +81,7 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
 
                         if save_csv:
                             data =  second_to_time_str(frame_idx/fps) + ',' + str(frame_data.speed) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
-                            write_to_csv(data, SAVE_CSV_PATH)
+                            write_to_csv(data, SAVE_CSV_PATH['VIDEO'])
                         
                         prev_features_list = cur_features_list
                         cur_features_list = []
@@ -96,15 +96,16 @@ def run_video(debug=False, save_json=False, save_csv=False, out_video=SAVE_VIDEO
                 
             else:
                 if save_csv:
-                    logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
-
+                    logging.info(f"Saved csv file to {SAVE_CSV_PATH['VIDEO']}")
                 cap.release()
                 output.release()
+                logging.info(f'Saved video to {out_video}')
+
         except KeyboardInterrupt:
             cap.release()
             output.release()
             if save_csv:
-                logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
+                logging.info(f"Saved csv file to {SAVE_CSV_PATH['VIDEO']}")
             logging.info(f'Saved video to {out_video}')
             sys.exit()
     

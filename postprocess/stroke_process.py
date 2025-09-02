@@ -121,23 +121,3 @@ class StrokeProcess:
         stroke_count = int(len(i_peaks)*60/duration_in_seconds)
         return stroke_count if stroke_count < 100 else 0 # stroke per minute
 
-
-
-        # f = self.fps//FPS_RATE
-        # T = 1/f
-        # yf = abs(np.fft.fft(dist_lwrist_nose)) # to normalize use norm='ortho' as an additional argument
-        # freq = np.fft.fftfreq(self.time_window, d=T)
-
-        # Find peaks
-        # i_peaks, _ = find_peaks(yf[:self.time_window//2])
-        # Find the index from the maximum peak
-        # i_max_peak = i_peaks[np.argmax(yf[i_peaks])]
-
-
-        # max_freq = freq[i_max_peak]
-        # print(f'len(yf)={len(yf)}')
-        # print(f'i_max_peak={i_max_peak}, max_freq={max_freq}')
-
-        # return int(1/max_freq*60) # convert stroker/s to stroke/minute
-
-                
