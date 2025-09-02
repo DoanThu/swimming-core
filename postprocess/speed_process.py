@@ -7,21 +7,17 @@ from scipy import signal
 import scipy
 
 class SpeedProcess:
-    def __init__(self, frame_window:int=60, marker_size:float=1, fps:int=60):
-        self.frame_window = frame_window
+    def __init__(self, fps):
         self.current_speed = FrameDataConst.UNKNOWN
         self.pct_change = FrameDataConst.UNKNOWN
-        self.marker_size = marker_size # size of the marker in reality im meter. Default is 1.
         self.fps = fps
-        self.marker_size_pixel = -1
+        self.frame_window = self.fps
         self.red_marker = False # to check if the head is at the red marker
         
         
     def calculate_speed(self, frame:np.ndarray, frame_data:FrameData, 
                         anchor_list:OrderedDict, 
-                        lanes_segmentation:list,
-                        lane_type:str='segmentation',
-                        unit_size:int=1):
+                        lanes_segmentation:list):
         """ One frame might have multiple lane dividers. Each lane divider will return its length. The final distance will be the mode of all the dividers. 
 
         Args:
@@ -30,17 +26,16 @@ class SpeedProcess:
             anchor_list (OrderedDict): list of anchors, keys are time, values are coordinates    
             lanes_segmentation (list): segmentation of lane dividers detected
         """
-        self.marker_size_pixel = unit_size
         
         if len(anchor_list) < 2: return
         times = list(anchor_list.keys()) # times are already sorted
-        
+
         # get begin and end time to calculate speed
         current_anchor = anchor_list[times[-1]][0]
         for i in range(len(times), -1, -1):
             if times[-1]-times[i-1] > self.frame_window: break
         past_anchor = anchor_list[times[i]][0]
-        if times[-1]  == times[i]: return 
+        if times[-1] == times[i]: return 
 
         
         all_markers_count = [] # place to store markers count of all lane dividers
@@ -91,7 +86,7 @@ class SpeedProcess:
         all_markers_count = np.array(all_markers_count)
         if len(all_markers_count) == 0: return
 
-        current_speed = scipy.stats.mode(all_markers_count).mode * self.marker_size / (times[-1]-times[i]) * self.fps
+        current_speed = np.mean(all_markers_count) / (times[-1]-times[i]) * self.fps
         if self.current_speed == FrameDataConst.UNKNOWN:
             self.current_speed = current_speed
         else:

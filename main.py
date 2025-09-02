@@ -5,7 +5,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 from main_process.video_process import run_video
 from main_process.socket_process import run_socket
-from config.general import RESOLUTION
+from config.general import RESOLUTION, VIDEO_PATH
+import os
 
 
 if __name__ == '__main__':

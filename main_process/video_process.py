@@ -7,6 +7,7 @@ from main_process.core_process import MainCalculation
 import os
 import sys
 import time
+from postprocess.lap_time_process import LapTime
 from utils.time_utils import second_to_time_str
 from utils.dict_utils import dict_to_string
 from postprocess.analytics import ExtractParams
@@ -14,6 +15,8 @@ import logging
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
+from utils.signal_utils import moving_average
+from postprocess.stroke_count_process import get_stroke_count_cap, flip_skeletons, get_nose_wrist_distance
 
 frame_data_list: List[FrameData] = []
 
@@ -24,7 +27,7 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
     else:
         frame_width, frame_height = fx, fy
 
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    fps = round(cap.get(cv2.CAP_PROP_FPS))
     frame_idx = -1
 
     if not os.path.exists(os.path.dirname(out_video)):
@@ -39,14 +42,18 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
             os.remove(SAVE_CSV_PATH['VIDEO'])
         write_to_csv(','.join(SAVE_CSV_COLUMNS), SAVE_CSV_PATH['VIDEO'])
         
-
+    save_csv_path = SAVE_CSV_PATH['VIDEO']
     
     
-    calculate_frame = MainCalculation(fps, lane_type=lane_type)
+    calculate_frame = MainCalculation(fps)
     extractParams = ExtractParams()
 
     prev_features_list = []
     cur_features_list = []
+
+    overlap_list = []
+    frame_data_list: List[FrameData] = []
+
 
     while cap.isOpened():
         try:
@@ -64,9 +71,12 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
                     continue
                    
                 
-                annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
+                annotated_frame, frame_data, updated_speed, overlap = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                 
                 if not frame_data.skeleton: continue
+
+                overlap_list.append(overlap)
+                frame_data_list.append(frame_data)
 
                 if updated_speed:
                     if not prev_features_list:
@@ -112,7 +122,50 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
     if debug:
         logging.debug(f'Annotated video is saved at {out_video}')
 
+    # Lap time
+    laptime_process = LapTime()
+    overlap_list = laptime_process.remove_short_peaks(overlap_list)
+    laptimes = laptime_process.find_zero_segments(overlap_list, fps=fps//2)
+    laptimes_arr = []
+    for i,r in enumerate(laptimes):
+        if i == 0:
+            start_ = r[0]
+        else:
+            start_ = laptimes[i-1][1]
+        end_ = r[1]
+        laptimes_arr.append(start_)
+        laptimes_arr.append(end_)
+    if save_csv:
+        laptimes_arr_str = [str(i) for i in laptimes_arr]
+        data =  '-1' + ',' + 'lap_times' + ',' + ','.join(laptimes_arr_str)
+        write_to_csv(data, save_csv_path)
 
+    # Stroke count
+    from model_caller.stroke_classification_caller import StrokeClassificationCaller
+    stroke_classification_caller = StrokeClassificationCaller()
+    stroke_count_list = []
+    for i in range(0,len(laptimes_arr),2):
+        start_idx = int(laptimes_arr[i]*30)
+        end_idx = int(laptimes_arr[i+1]*30)
+        print(start_idx, end_idx)
+        skeletons = [frame.skeleton[0] for frame in frame_data_list[start_idx:end_idx]]
+        stroke_type = stroke_classification_caller.inference(skeletons)
+        skeletons = flip_skeletons(skeletons)
+        nose_wrist = get_nose_wrist_distance(skeletons)
+        nose_wrist = moving_average(nose_wrist)
+        stroke_count = get_stroke_count_cap(nose_wrist)
+        if stroke_type in [1,2]:
+            stroke_count *= 2
+        stroke_count_list.append(stroke_count)
+
+    if save_csv:
+        stroke_count_list_str = [str(i) for i in stroke_count_list] 
+        data =  '-1' + ',' + 'stroke_count' + ',' + ','.join(stroke_count_list_str)
+        write_to_csv(data, save_csv_path)
     
-    
+    if save_csv:
+        logging.info(f'Saved csv file to {save_csv_path}')
    
+
+
+

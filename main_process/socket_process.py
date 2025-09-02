@@ -29,7 +29,7 @@ def send_to_client(clientsocket, list_data):
 def param_visualization(d_distances, d_angles):
     # For visualization in client side
     dist_feature_list = ['nose_lwrist', 'nose_rwrist', 'lwrist_rwrist']
-    dist_visualization = get_first_k({feature:d_distances[feature]*REAL_SIZE_WIDTH for feature in dist_feature_list},5)
+    dist_visualization = get_first_k({feature:d_distances[feature] for feature in dist_feature_list},5)
 
     angle_feature_list = ['lshoulder_lelbow_lwrist', 'rshoulder_relbow_rwrist']
     angle_visualization = get_first_k({feature:d_angles[feature] for feature in angle_feature_list},5)
@@ -62,7 +62,7 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
                     common_fps = [24, 30, 60, 120]
                     fps = common_fps[np.argmin([abs(i-fps) for i in common_fps])]
 
-                    calculate_frame = MainCalculation(fps=fps, lane_type=lane_type)
+                    calculate_frame = MainCalculation(fps=fps)
 
                     if not os.path.exists(os.path.dirname(out_video)):
                         os.makedirs(os.path.dirname(out_video))
@@ -88,10 +88,13 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
                             if frame_idx % FPS_RATE != 0: 
                                 continue
 
-                            annotated_frame, frame_data, updated_speed = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
+                            annotated_frame, frame_data, updated_speed, overlap = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
                             
+                            if not frame_data.skeleton: continue
 
-                            swimming_speed = frame_data.speed * REAL_SIZE_WIDTH
+                            swimming_speed = frame_data.speed_m
+                            d_distances = extractParams.extract_distance_features(frame_data.skeleton) # single point
+
                             sub_frame_data = {'speed': swimming_speed, 'pct_change': frame_data.speed_pct_change,
                                                'stroke': FrameDataConst.MAP_STROKE[frame_data.stroke],
                                                'direction': FrameDataConst.MAP_DIRECTION[frame_data.direction],
@@ -103,11 +106,9 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
                                 send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, frame, sub_frame_data]) # size = 4
                                 continue
 
-                            d_distances = extractParams.extract_distance_features(frame_data.skeleton) # single point
                             d_angles = extractParams.extract_angle_features(frame_data.skeleton) # single point
                             cur_features_list.append([d_distances, d_angles])
                             dist_visualization, angle_visualization = param_visualization(d_distances, d_angles)
-                            
 
                             if updated_speed:
                                 # Find factors impact speed change
@@ -161,7 +162,6 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
                 logging.info("Closed a connection from %s" % str(addr))
                 clientsocket.close()
                 cap.release()
-                output.release()
                 if out_video:
                     logging.debug(f'Annotated video is saved at {out_video}')
 

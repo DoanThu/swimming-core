@@ -10,21 +10,19 @@ SEG_CONFIG = 'config/seg_model.yaml'
 DETECT_CONFIG = 'config/detect_model.yaml'
 FACE_CONFIG = 'config/face_model.yaml'
 OPTICAL_FLOW_CONFIG = 'config/optical_flow_model.yaml'
-OPTICAL_FLOW_METHOD = 'LK' # LK/RAFT/COLOR
 
 # Sytem 
 SAVE_AFTER_SECONDS = 5 
 SAVE_JSON_PATH = 'frame_info/interval_{}.json'
-SAVE_CSV_COLUMNS = ['timestamp', 'speed', 'speed_pct_change', 'pct_dist_changes', 'angle_changes']
+SAVE_CSV_COLUMNS = ['timestamp', 'field', 'value']
 
 # For VIDEO
-FILENAME = 'DJI_0064_demo.MP4'
-VIDEO_PATH = f'2024Nov28_resized/{FILENAME}' 
+FILENAME = 'DJI_0161.MP4'
+VIDEO_PATH = f'videos/2025/2025Mar19_resized/{FILENAME}' 
 
 # For STREAMING/SOCKET
 # DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
 DEVICE_ID = VIDEO_PATH # Change to video path to debug UI
-
 from datetime import datetime
 current_date_time = datetime.today().strftime('%Y%m%d_%H%M%S')
 
@@ -40,8 +38,8 @@ SAVE_VIDEO_PATH = {'VIDEO': f"saved_annotated_videos/{FILENAME.split('.')[0]}_ou
 D = 8 # drone height is 8m
 SENSOR_SIZE = (17.3/1000, 13.3/1000) # 17.3 x 13 mm
 F = 24/1000 # focal length 24mm
-# RESOLUTION = (660, 440) # resize of 5472, 3648
-RESOLUTION = (480, 320) # resize of 5472, 3648, should divisible by 8 if RAFT is used
+# RESOLUTION = (900, 600) # resize of 5472, 3648
+RESOLUTION = (600, 400) # resize of 5472, 3648
 PIXEL_DENSITY_WIDTH = RESOLUTION[0]/SENSOR_SIZE[0]
 PIXEL_DENSITY_HEIGHT = RESOLUTION[1]/SENSOR_SIZE[1]
 REAL_SIZE_WIDTH = D/(F*PIXEL_DENSITY_WIDTH) # size of 1 pixel in meter
