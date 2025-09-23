@@ -1,5 +1,5 @@
 import torch 
-from postprocess.data import FrameDataConst
+from postprocess.single_data import FrameDataConst
 import numpy as np
 import math
 

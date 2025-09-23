@@ -36,7 +36,7 @@ def draw_keypoints(image:np.ndarray, keypoints:torch.Tensor, thickness:int=1) ->
 def write_single_text(image:np.ndarray, text:str, 
                font:str=cv2.FONT_HERSHEY_SIMPLEX, 
                color:tuple=(0, 255, 0), org:tuple=(50,50), 
-               font_scale:int=1, thickness:int=2, text_color_bg:tuple=(0, 0, 0)) -> np.ndarray:
+               font_scale:float=1.0, thickness:int=2, text_color_bg:tuple=(0, 0, 0)) -> np.ndarray:
     """ Write a line of text into given image and return that image with text
 
     Args:
@@ -52,21 +52,19 @@ def write_single_text(image:np.ndarray, text:str,
     Returns:
         np.ndarray: image with text
     """
-    
-    
     x, y = org
     text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
     text_w, text_h = text_size
     
     cv2.rectangle(image, org, (x + text_w, y + text_h), text_color_bg, -1)
-    cv2.putText(image, text, (x, y + text_h + font_scale - 1), font, font_scale, color, thickness,  cv2.LINE_AA)
+    cv2.putText(image, text, (x, int(y + text_h + font_scale - 1)), font, font_scale, color, thickness,  cv2.LINE_AA)
     return image
 
 
 def write_texts(image:np.ndarray, texts:List[str], spacing:int, 
                font:str=cv2.FONT_HERSHEY_SIMPLEX, 
                color:tuple=(0, 255, 0), org:tuple=(50,50), 
-               font_scale:int=1, thickness:int=2, text_color_bg:tuple=(0, 0, 0)) -> np.ndarray:
+               font_scale:float=1.0, thickness:int=2, text_color_bg:tuple=(0, 0, 0)) -> np.ndarray:
     """ Write multiple lines of text into given image and return the image. All lines are left aligned.
 
     Args:
@@ -83,7 +81,6 @@ def write_texts(image:np.ndarray, texts:List[str], spacing:int,
     Returns:
         np.ndarray: image with multiple lines of text
     """
-
     orgx, orgy = org
     for text in texts:
         write_single_text(image, text, font, color, 
@@ -153,5 +150,5 @@ def draw_dot(image:np.ndarray, dots:np.ndarray,
 
     return image
 
-
+    
 		

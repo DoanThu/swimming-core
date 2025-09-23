@@ -1,11 +1,20 @@
 import numpy as np
-# from model_caller.seg_model_caller import SegCaller
-from postprocess.single_data import FrameData, FrameDataConst
+from postprocess.multiple_data import FrameMultipleData
+from postprocess.const import FrameDataConst
 from collections import OrderedDict
 import cv2
-# from model_caller.optical_flow_model_caller import OpticalFlowCaller
-import torch
-from utils.color_utils import filter_red
+
+class AnchorPoint:
+    def __init__(self, coord:np.ndarray, 
+                 swimmer_id: int = -1):
+        self.coord = coord  # np.ndarray of shape (2,)
+        self.swimmer_id = swimmer_id  # -1 for random points, otherwise swimmer id
+
+    def __str__(self):
+        return f"AnchorPoint(coord={self.coord}, swimmer_id={self.swimmer_id})"
+    
+    def __repr__(self):
+        return self.__str__()
 
 
 class AnchorProcess:
@@ -40,7 +49,7 @@ class AnchorProcess:
 
 
 
-    def update_optical_flow_anchors(self, frame: np.ndarray, prev_frame):
+    def update_optical_flow_anchors(self, frame: np.ndarray, prev_frame: np.ndarray):
         """ Update previous anchor points using optical flow. 
         Also remove updated points that are out-of-sight along the way.
 
@@ -51,11 +60,14 @@ class AnchorProcess:
             return
         
 
-        latest_point = list(self.random_anchor_list.keys())[0]
-        p0 = self.random_anchor_list[latest_point]
+        latest_point_idx = list(self.random_anchor_list.keys())[0] # index of the latest AnchorPoint
+        p0 = self.random_anchor_list[latest_point_idx]
+        p0 = np.array([point.coord for point in p0], dtype=np.float32)
 
+        # updated vectors are based on random anchor points
         updated_vectors = self.get_updated_vectors(p0, frame, prev_frame)
-        # Customize to update anchor points
+
+        # Use mean of updated vectors to update all anchor points
         updated_vectors = np.array(updated_vectors)
         if len(updated_vectors) == 0: 
             return
@@ -66,15 +78,16 @@ class AnchorProcess:
 
         keys_to_remove = []
         # Update anchor points
-        for k, p0 in self.anchor_list.items():
-            new_p = p0 + updated_vector
+        for k, p0 in self.anchor_list.items(): # p0 is a list of AnchorPoint
+            new_p = [ap.coord + updated_vector for ap in p0] 
+            swimmer_ids = [ap.swimmer_id for ap in p0]
             adjusted_anchors = []
-            for p in new_p:
+            for p, swimmer_id in zip(new_p, swimmer_ids):
                 if np.any(p < 0) or np.isnan(p).any() or p[0] >= frame.shape[1] or p[1] >= frame.shape[0]:
                     continue
-                adjusted_anchors.append(p)
+                adjusted_anchors.append((p, swimmer_id))
             if len(adjusted_anchors) != 0:
-                self.anchor_list[k] = np.array(adjusted_anchors, dtype=np.float32)
+                self.anchor_list[k] = np.array([AnchorPoint(coord=aa[0], swimmer_id=aa[1]) for aa in adjusted_anchors])
             else:
                 keys_to_remove.append(k)
 
@@ -85,14 +98,15 @@ class AnchorProcess:
         keys_to_remove = []
         # Update random anchor points
         for k, p0 in self.random_anchor_list.items():
-            new_p = p0 + updated_vector
+            new_p = [ap.coord + updated_vector for ap in p0] 
+            swimmer_ids = [ap.swimmer_id for ap in p0]
             adjusted_anchors = []
-            for p in new_p:
+            for p, swimmer_id in zip(new_p, swimmer_ids):
                 if np.any(p < 0) or np.isnan(p).any() or p[0] >= frame.shape[1] or p[1] >= frame.shape[0]:
                     continue
-                adjusted_anchors.append(p)
+                adjusted_anchors.append((p, swimmer_id))
             if len(adjusted_anchors) != 0:
-                self.random_anchor_list[k] = np.array(adjusted_anchors, dtype=np.float32)
+                self.random_anchor_list[k] = np.array([AnchorPoint(coord=aa[0], swimmer_id=aa[1]) for aa in adjusted_anchors])
             else:
                 keys_to_remove.append(k)
 
@@ -110,7 +124,7 @@ class AnchorProcess:
             
     def update_anchor_points(self, frame_idx: int, 
                              frame: np.ndarray, previous_frame: np.ndarray,
-                             frame_data: FrameData,
+                             frame_multi_data: FrameMultipleData,
                              lane_dividers: list):
         """ First, update previous anchor points using optical flow.
         Then, add new points if there are new intersection points with the lane dividers.
@@ -146,26 +160,32 @@ class AnchorProcess:
         
 
         if len(lane_dividers) != 0:
-            # Add more anchors to anchor_list
-            skeleton = frame_data.skeleton
-            head_coord = skeleton[0][0].cpu().numpy()
-            new_anchors = []
-            if frame_data.frame_orientation == FrameDataConst.VERTICAL and frame_data.direction in [FrameDataConst.UP, FrameDataConst.DOWN]:  # vertical frame
-                reference_y = head_coord[1]  # y coord
-                for divider in lane_dividers:
-                    x, y, w, h = divider
-                    new_anchors.extend([[x, reference_y], [x+w, reference_y]])
+            # add head projection points on lane dividers as new anchors
+            for i in range(len(frame_multi_data.swimmer_id_list)):
+                skeleton = frame_multi_data.skeleton_list[i]
+                head_coord = skeleton[0].cpu().numpy()
+                new_anchors = []
+                if frame_multi_data.frame_orientation == FrameDataConst.VERTICAL and frame_multi_data.direction_list[i] in [FrameDataConst.UP, FrameDataConst.DOWN]:  # vertical frame
+                    reference_y = head_coord[1]  # y coord
+                    for divider in lane_dividers:
+                        x, y, w, h = divider
+                        new_anchors.extend([[x, reference_y, frame_multi_data.swimmer_id_list[i]],
+                                             [x+w, reference_y, frame_multi_data.swimmer_id_list[i]]])
                         
-            elif frame_data.frame_orientation == FrameDataConst.HORIZONTAL and frame_data.direction in [FrameDataConst.LEFT, FrameDataConst.RIGHT]:  # horizontal frame
-                reference_x = head_coord[0]  # x coord
-                for divider in lane_dividers:
-                    x, y, w, h = divider
-                    new_anchors.extend([[reference_x, y], [reference_x, y+h]])
+                elif frame_multi_data.frame_orientation == FrameDataConst.HORIZONTAL and frame_multi_data.direction_list[i] in [FrameDataConst.LEFT, FrameDataConst.RIGHT]:  # horizontal frame
+                    reference_x = head_coord[0]  # x coord
+                    for divider in lane_dividers:
+                        x, y, w, h = divider
+                        new_anchors.extend([[reference_x, y, frame_multi_data.swimmer_id_list[i]],
+                                             [reference_x, y+h, frame_multi_data.swimmer_id_list[i]]])
 
-            if len(new_anchors) == 0:
-                return
-            self.anchor_list[frame_idx] = np.array(new_anchors, np.float32)
-
+                if len(new_anchors) == 0: continue
+                if frame_idx not in self.anchor_list:
+                    self.anchor_list[frame_idx] = np.array([AnchorPoint(np.array([na[0], na[1]], dtype=np.float32), swimmer_id=na[2]) for na in new_anchors])
+                else:
+                    self.anchor_list[frame_idx] = np.concatenate((self.anchor_list[frame_idx], 
+                                                                 np.array([AnchorPoint(np.array([na[0], na[1]], dtype=np.float32), swimmer_id=na[2]) for na in new_anchors])), axis=0)
+    
     def add_random_anchor_points(self, frame_idx, random_x, random_y):
         """ Add random anchor points to minimize the effect of water flow.
 
@@ -173,7 +193,7 @@ class AnchorProcess:
             random_x (np.ndarray): x coordinates of random anchor points
             random_y (np.ndarray): y coordinates of random anchor points
         """
-        temp = np.array([[x, y] for x, y in zip(random_x, random_y)], np.float32)
+        temp = np.array([AnchorPoint(np.array([x, y], dtype=float), swimmer_id=-1) for x, y in zip(random_x, random_y)])
         if frame_idx not in self.random_anchor_list:
             self.random_anchor_list[frame_idx] = temp
         else:

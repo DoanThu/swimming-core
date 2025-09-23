@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from postprocess.data import FrameDataConst
+from postprocess.single_data import FrameDataConst
 
 
 def is_valid_skeleton(skeleton:torch.Tensor) -> bool:
@@ -46,6 +46,24 @@ def get_valid_skeletons(skeletons:torch.Tensor) -> list:
         is_valid_skeleton(skeleton) for skeleton in torch.unbind(skeletons, dim=0)
     ])
     return skeletons[arr]
+
+def get_valid_skeletons_from_track(track_results:torch.Tensor) -> list:
+    """Return valid skeletons ids from track_results 
+
+    Args:
+        track_results (dict): contains keypoints and ids 
+    Returns:
+        list: list of valid skeletons and their ids
+    """
+    keypoints = track_results.keypoints.xy
+    ids = track_results.boxes.id
+    arr = np.array([
+        is_valid_skeleton(skeleton) for skeleton in torch.unbind(keypoints, dim=0)
+    ])
+    valid_skeletons = keypoints[arr]
+    valid_ids = ids[arr]
+    return valid_skeletons, valid_ids
+
 
 def get_bbox_area(xmin, ymin, xmax, ymax) -> float:
     return (xmax-xmin)*(ymax-ymin)

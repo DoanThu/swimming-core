@@ -1,5 +1,5 @@
 from typing import List
-from postprocess.data import FrameData, FrameDataConst
+from postprocess.single_data import FrameData, FrameDataConst
 import numpy as np
 import torch
 

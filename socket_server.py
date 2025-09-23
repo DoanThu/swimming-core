@@ -1,6 +1,6 @@
 import socket,cv2,pickle, struct
 from config.general import FPS_RATE, VIDEO_PATH, SAVE_AFTER_SECONDS
-from main_process.core_process import MainCalculation
+from main_process.core_process_single import MainCalculation
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,

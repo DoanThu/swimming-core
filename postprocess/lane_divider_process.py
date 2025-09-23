@@ -1,5 +1,5 @@
 import numpy as np
-from postprocess.data import FrameData, FrameDataConst
+from postprocess.single_data import FrameData, FrameDataConst
 from model_caller.seg_model_caller import SegCaller
 from scipy import signal
 import cv2

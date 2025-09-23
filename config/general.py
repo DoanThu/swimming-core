@@ -1,3 +1,4 @@
+# Input video has FPS of 60
 FPS_RATE = 2 # read every n frames, needs to be a factor of with freq_frame_idx in seg_model.yaml
 MAP_FPS_RATE_FREQ_SEGMENT = {2: 30, 3:30, 4:32}
 FREQ_SEGMENT = MAP_FPS_RATE_FREQ_SEGMENT[FPS_RATE] # call the seg model every n frames
@@ -17,12 +18,12 @@ SAVE_JSON_PATH = 'frame_info/interval_{}.json'
 SAVE_CSV_COLUMNS = ['timestamp', 'field', 'value']
 
 # For VIDEO
-FILENAME = 'DJI_0161.MP4'
-VIDEO_PATH = f'videos/2025/2025Mar19_resized/{FILENAME}' 
+FILENAME = 'DJI_0304_resized.MP4'
+VIDEO_PATH = f'videos/RI/{FILENAME}' 
 
 # For STREAMING/SOCKET
-# DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
-DEVICE_ID = VIDEO_PATH # Change to video path to debug UI
+DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
+# DEVICE_ID = VIDEO_PATH # Change to video path to debug UI
 from datetime import datetime
 current_date_time = datetime.today().strftime('%Y%m%d_%H%M%S')
 
@@ -44,3 +45,7 @@ PIXEL_DENSITY_WIDTH = RESOLUTION[0]/SENSOR_SIZE[0]
 PIXEL_DENSITY_HEIGHT = RESOLUTION[1]/SENSOR_SIZE[1]
 REAL_SIZE_WIDTH = D/(F*PIXEL_DENSITY_WIDTH) # size of 1 pixel in meter
 REAL_SIZE_HEIGHT = D/(F*PIXEL_DENSITY_HEIGHT) # size of 1 pixel in meter
+
+
+# Computation
+TIME_WINDOW_STROKE = 150 # 5 seconds

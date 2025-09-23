@@ -9,7 +9,7 @@ from utils.lane_segment_utils import get_ground, bbox_overlap_or_near
 from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot, draw_detection
 from utils.file_utils import read_yaml
 from utils.skeleton_utils import get_valid_skeletons, get_bbox, get_bbox_area, get_mid_skeleton
-from postprocess.data import FrameData, FrameDataConst
+from postprocess.single_data import FrameData, FrameDataConst
 from postprocess.stroke_process import StrokeProcess
 from postprocess.status_process import StatusProcess
 from postprocess.side_process import SideProcess
@@ -33,7 +33,7 @@ class MainCalculation:
                 if lane1 <= skeleton[0][axis] <= lane2:
                     count += 1
             return count == 1
-        if len(self.pixel_to_meters) > 0: return
+        # if len(self.pixel_to_meters) > 0: return
 
         distances = []
 
@@ -44,7 +44,7 @@ class MainCalculation:
                 y1, h1 = bboxes_sorted[i][1], bboxes_sorted[i][3]
                 y2 = bboxes_sorted[i + 1][1]
                 distance = y2 - y1
-                if not is_valid_consecutive_lanes(y1, y2, skeletons, 1): continue
+                # if not is_valid_consecutive_lanes(y1, y2, skeletons, 1): continue # make sure 1 lane has 1 skeleton
                 if distance < 30: continue
                 distances.append(distance)
         elif frame_orientation == FrameDataConst.VERTICAL:
@@ -53,11 +53,13 @@ class MainCalculation:
             for i in range(len(bboxes_sorted) - 1):
                 x1, w1 = bboxes_sorted[i][0], bboxes_sorted[i][2]
                 x2 = bboxes_sorted[i + 1][0]
-                if not is_valid_consecutive_lanes(x1, x2, skeletons, 0): continue  
+                # if not is_valid_consecutive_lanes(x1, x2, skeletons, 0): continue  # make sure 1 lane has 1 skeleton
                 distance = x2 - x1
                 if distance < 30: continue
                 distances.append(distance)
         temp = np.mean(distances)/2.5*PIXEL_DENSITY_HEIGHT/PIXEL_DENSITY_WIDTH
+        if temp == 0: return
+
         if len(self.pixel_to_meters) == 0:
             self.pixel_to_meters.append(temp)
         else:
@@ -232,7 +234,6 @@ class MainCalculation:
             
         if torch.is_tensor(frame_data.skeleton):
             frame_data.skeleton = frame_data.skeleton.cpu().numpy().tolist()
-        # frame_data.bbox = [i for i in frame_data.bbox]
         # append current frame to list
         self.frame_data_list.append(frame_data)
 
@@ -253,7 +254,7 @@ class MainCalculation:
             else:
                 frame_idx_ = ''
             annotated_frame = draw_dot(annotated_frame, v, 
-                                        color=self.RANDOM_COLORS[k%len(self.RANDOM_COLORS)].tolist(), radius=4,
+                                        color=self.RANDOM_COLORS[k%len(self.RANDOM_COLORS)].tolist(), radius=2,
                                         frame_idx=frame_idx_)
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:

@@ -1,15 +1,15 @@
 import numpy as np
 import torch 
 from typing import List
-from postprocess.data import FrameData, FrameDataConst
+from postprocess.single_data import FrameData, FrameDataConst
 import math
 from config.general import FPS_RATE
 from scipy.signal import find_peaks, savgol_filter
 from postprocess.analytics import ExtractParams
-
+from config.general import TIME_WINDOW_STROKE
 
 class StrokeProcess:
-    def __init__(self, fps, time_window=150) -> None:
+    def __init__(self, fps, time_window=TIME_WINDOW_STROKE) -> None:
         self.fps = fps
         self.time_window = time_window
     

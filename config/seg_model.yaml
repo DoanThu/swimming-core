@@ -1,4 +1,5 @@
-model_path: 'models/seg11n-640.pt'
+# model_path: 'models/seg11n-640.pt'
+model_path: 'models/segment-640.pt'
 
 # params for inference 
 inference:

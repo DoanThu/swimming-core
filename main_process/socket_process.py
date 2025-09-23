@@ -4,7 +4,7 @@ import logging
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
-from main_process.core_process import MainCalculation
+from main_process.core_process_single import MainCalculation
 from postprocess.analytics import ExtractParams
 import os
 from utils.dict_utils import dict_to_string, get_first_k
@@ -12,7 +12,7 @@ import traceback
 from utils.time_utils import second_to_time_str
 import numpy as np
 from utils.file_utils import write_to_csv
-from postprocess.data import FrameDataConst
+from postprocess.single_data import FrameDataConst
 
 
 def encode_to_send(data):
@@ -142,20 +142,20 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
 
 
                         else:
-                            cap = cv2.VideoCapture(DEVICE_ID)
-                            frame_idx = -1
-                            # cap.release()
-                            # output.release()
-                            # serversocket.close()
-                            # clientsocket.close()
+                            # cap = cv2.VideoCapture(DEVICE_ID)
+                            # frame_idx = -1
+                            cap.release()
+                            output.release()
+                            serversocket.close()
+                            clientsocket.close()
                             
-                            # logging.info('Video ended')
-                            # if save_csv:
-                            #     logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
+                            logging.info('Video ended')
+                            if save_csv:
+                                logging.info(f'Saved csv file to {SAVE_CSV_PATH}')
                                 
-                            # if out_video:
-                            #     logging.debug(f'Annotated video is saved at {out_video}')
-                            # break
+                            if out_video:
+                                logging.debug(f'Annotated video is saved at {out_video}')
+                            break
 
             except Exception as e:
                 traceback.print_exc()
