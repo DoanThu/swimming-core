@@ -18,7 +18,6 @@ from postprocess.speed_process_v2 import SpeedProcess
 from postprocess.anchor_process_v2 import AnchorProcess
 from postprocess.lane_divider_process import LaneDivider
 from typing import List
-import torch
 import numpy as np
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',

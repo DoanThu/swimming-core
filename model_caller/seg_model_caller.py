@@ -29,6 +29,7 @@ class SegCallerYOLO(SegCaller):
         if masks == None: return []
         lane_divider_masks = [mask for i, mask in enumerate(results[0].masks.xy) if int(results[0].boxes.cls[i]) == 0]
         lane_divider_bboxes = [cv2.boundingRect(np.array(segment)) for segment in lane_divider_masks]
+        lane_divider_bboxes = [bbox for bbox in lane_divider_bboxes if bbox[2] != 0 and bbox[3] != 0]
         return lane_divider_bboxes
         
         

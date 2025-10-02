@@ -32,7 +32,8 @@ class FrameData(SuperDataClass):
     status: int = FrameDataConst.READY
     # reach_marker: bool = False
     skeleton: list = field(default_factory=list)
-    bbox: torch.Tensor = torch.Tensor(0, 4) # bbox of the skeleton (xmin, ymin, xmax, ymax)
+    # bbox: torch.Tensor = torch.Tensor(0, 4) # bbox of the skeleton (xmin, ymin, xmax, ymax)
+    bbox: list = field(default_factory=list)
     bbox_area: float = FrameDataConst.UNKNOWN
     stroke: int = FrameDataConst.UNKNOWN
     stroke_count: int = 0
@@ -44,6 +45,7 @@ class FrameData(SuperDataClass):
     speed_px: float = FrameDataConst.UNKNOWN # speed in pixels
     speed_pct_change: float = FrameDataConst.UNKNOWN
     red_marker: bool = False
+    distance_per_stroke: float = 0
      
     # process info
     pose_time: float = FrameDataConst.UNKNOWN

@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import cv2, json
-from config.general import SAVE_ANALYSIS_PATH
+# from config.general import SAVE_ANALYSIS_PATH
 
 def _is_simple(x):
     return isinstance(x, (int, float, str, bool, type(None), np.integer, np.floating))
@@ -36,7 +36,7 @@ def dataclass_to_row(dc_obj, flatten=True, prefix=""):
 def save_video_and_index(
     frames,              # iterable of (frame_idx, frame_bgr_np)
     metas,               # list aligned with frames OR dict keyed by frame_idx
-    out_dir=SAVE_ANALYSIS_PATH,
+    out_dir,
     fps=30.0,
     video_name="video.mp4",
     write_thumbs=True,
@@ -77,10 +77,22 @@ def save_video_and_index(
 
     vw.release()
     df = pd.DataFrame(rows).sort_values("frame_adjusted_idx").reset_index(drop=True)
+    if 'swimmer_id_list' not in df.columns: # track single swimmer
+        df['swimmer_id_list'] = ['[0]']*len(df)
+    if 'stroke_count_list' not in df.columns:
+        df['stroke_count_list'] = df.apply(lambda row: '[' + str(row['stroke_count']) + ']', axis=1)
+    if 'speed_m_list' not in df.columns:
+        df['speed_m_list'] = df.apply(lambda row: '[' + str(row['speed_m']) + ']', axis=1)
+    if 'distance_per_stroke_list' not in df.columns:
+        df['distance_per_stroke_list'] = df.apply(lambda row: '[' + str(row['distance_per_stroke']) + ']', axis=1)
+    if 'bbox_list' not in df.columns:
+        df['bbox_list'] = df.apply(lambda row: '[' + str(row['bbox']) + ']', axis=1)
+    
+
     df.to_parquet(out/"metadata.parquet", index=False)
 
 
-def load_index(out_dir=SAVE_ANALYSIS_PATH):
+def load_index(out_dir):
     return pd.read_parquet(Path(out_dir)/"metadata.parquet")
 
 def row_to_dataclass(row, meta_cls, flatten_meta=True):

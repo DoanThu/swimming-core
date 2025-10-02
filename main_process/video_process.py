@@ -1,10 +1,9 @@
-from config.general import SAVE_AFTER_SECONDS, SAVE_CSV_PATH, VIDEO_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS, SAVE_SKELETON_PATH, SAVE_ANALYSIS_PATH
+from config.general import SAVE_AFTER_SECONDS, SAVE_CSV_PATH, VIDEO_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS, SAVE_SKELETON_PATH, SAVE_ANALYSIS_PATH_SINGLE, SAVE_ANALYSIS_PATH_MULTI
 import cv2 
 from utils.file_utils import write_to_csv
 from postprocess.single_data import FrameData
 from postprocess.multiple_data import FrameMultipleData
 from typing import List, Tuple
-from main_process.core_process_multiple import MainCalculation
 import os
 import sys
 import time
@@ -20,9 +19,12 @@ from utils.signal_utils import moving_average
 from postprocess.stroke_count_process import get_stroke_count_cap, flip_skeletons, get_nose_wrist_distance
 from utils.export_utils import save_skeleton_rows
 import numpy as np
+from utils.save_processed_info import save_video_and_index
+
 
 
 def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], fx=1, fy=1, lane_type='segmentation'):
+    from main_process.core_process_single import MainCalculation
     cap = cv2.VideoCapture(VIDEO_PATH)
     if fx < 1 and fy < 1:
         frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
@@ -55,6 +57,7 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
 
     overlap_list = []
     frame_data_list: List[FrameData] = []
+    frame_list: Tuple[int, np.ndarray] = []
 
 
     while cap.isOpened():
@@ -79,6 +82,7 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
 
                 overlap_list.append(overlap)
                 frame_data_list.append(frame_data)
+                frame_list.append(frame)
 
                 if updated_speed:
                     if not prev_features_list:
@@ -121,62 +125,68 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
             logging.info(f'Saved video to {out_video}')
             sys.exit()
     
-    # if debug:
-        # logging.debug(f'Annotated video is saved at {out_video}')
 
-    # Save skeletons
-    os.makedirs('saved_skeletons', exist_ok=True)
-    skeleton_file_name = 'saved_skeletons' + '/' + out_video.replace('.mp4', '_skeletons.txt').split('/')[-1]
-    save_skeleton_rows([s.skeleton[0] for s in frame_data_list],
-                        out_path=skeleton_file_name,
-                        tail=[3]*len(frame_data_list)) # tail=5 means breaststroke, 3 means freestyle
-    logging.info(f'Saved skeletons to {skeleton_file_name}')
+    filename = out_video.replace('.mp4', '').split('/')[-1]
+    save_analysis_path = f'{SAVE_ANALYSIS_PATH_SINGLE}/{filename}'
+    frame_list = [(i,f) for i,f in enumerate(frame_list)]
+    save_video_and_index(frame_list, frame_data_list, out_dir=save_analysis_path, fps=fps//FPS_RATE)
+    logging.info(f'Saved analysis to {save_analysis_path}.')
 
-    # Lap time
-    laptime_process = LapTime()
-    overlap_list = laptime_process.remove_short_peaks(overlap_list)
-    laptimes = laptime_process.find_zero_segments(overlap_list, fps=fps//2)
-    laptimes_arr = []
-    for i,r in enumerate(laptimes):
-        if i == 0:
-            start_ = r[0]
-        else:
-            start_ = laptimes[i-1][1]
-        end_ = r[1]
-        laptimes_arr.append(start_)
-        laptimes_arr.append(end_)
-    if save_csv:
-        laptimes_arr_str = [str(i) for i in laptimes_arr]
-        data =  '-1' + ',' + 'lap_times' + ',' + ','.join(laptimes_arr_str)
-        write_to_csv(data, save_csv_path)
+    # # Save skeletons
+    # os.makedirs('saved_skeletons', exist_ok=True)
+    # skeleton_file_name = 'saved_skeletons' + '/' + out_video.replace('.mp4', '_skeletons.txt').split('/')[-1]
+    # save_skeleton_rows([s.skeleton[0] for s in frame_data_list],
+    #                     out_path=skeleton_file_name,
+    #                     tail=[3]*len(frame_data_list)) # tail=5 means breaststroke, 3 means freestyle
+    # logging.info(f'Saved skeletons to {skeleton_file_name}')
+
+    # # Lap time
+    # laptime_process = LapTime()
+    # overlap_list = laptime_process.remove_short_peaks(overlap_list)
+    # laptimes = laptime_process.find_zero_segments(overlap_list, fps=fps//2)
+    # laptimes_arr = []
+    # for i,r in enumerate(laptimes):
+    #     if i == 0:
+    #         start_ = r[0]
+    #     else:
+    #         start_ = laptimes[i-1][1]
+    #     end_ = r[1]
+    #     laptimes_arr.append(start_)
+    #     laptimes_arr.append(end_)
+    # if save_csv:
+    #     laptimes_arr_str = [str(i) for i in laptimes_arr]
+    #     data =  '-1' + ',' + 'lap_times' + ',' + ','.join(laptimes_arr_str)
+    #     write_to_csv(data, save_csv_path)
 
     # Stroke count
-    from model_caller.stroke_classification_caller import StrokeClassificationCaller
-    stroke_classification_caller = StrokeClassificationCaller()
-    stroke_count_list = []
-    for i in range(0,len(laptimes_arr),2):
-        start_idx = int(laptimes_arr[i]*30)
-        end_idx = int(laptimes_arr[i+1]*30)
-        print(f'start_idx={start_idx}, end_idx={end_idx}')
-        skeletons = [frame.skeleton[0] for frame in frame_data_list[start_idx:end_idx]]
-        stroke_type = stroke_classification_caller.inference(skeletons)
-        skeletons = flip_skeletons(skeletons)
-        nose_wrist = get_nose_wrist_distance(skeletons)
-        nose_wrist = moving_average(nose_wrist)
-        stroke_count = get_stroke_count_cap(nose_wrist)
-        if stroke_type in [1,2]:
-            stroke_count *= 2
-        stroke_count_list.append(stroke_count)
+    # from model_caller.stroke_classification_caller import StrokeClassificationCaller
+    # stroke_classification_caller = StrokeClassificationCaller()
+    # stroke_count_list = []
+    # for i in range(0,len(laptimes_arr),2):
+    #     start_idx = int(laptimes_arr[i]*30)
+    #     end_idx = int(laptimes_arr[i+1]*30)
+    #     print(f'start_idx={start_idx}, end_idx={end_idx}')
+    #     skeletons = [frame.skeleton[0] for frame in frame_data_list[start_idx:end_idx]]
+    #     stroke_type = stroke_classification_caller.inference(skeletons)
+    #     skeletons = flip_skeletons(skeletons)
+    #     nose_wrist = get_nose_wrist_distance(skeletons)
+    #     nose_wrist = moving_average(nose_wrist)
+    #     stroke_count = get_stroke_count_cap(nose_wrist)
+    #     if stroke_type in [1,2]:
+    #         stroke_count *= 2
+    #     stroke_count_list.append(stroke_count)
 
-    if save_csv:
-        stroke_count_list_str = [str(i) for i in stroke_count_list] 
-        data =  '-1' + ',' + 'stroke_count' + ',' + ','.join(stroke_count_list_str)
-        write_to_csv(data, save_csv_path)
+    # if save_csv:
+    #     stroke_count_list_str = [str(i) for i in stroke_count_list] 
+    #     data =  '-1' + ',' + 'stroke_count' + ',' + ','.join(stroke_count_list_str)
+    #     write_to_csv(data, save_csv_path)
     
-    if save_csv:
-        logging.info(f'Saved csv file to {save_csv_path}')
+    # if save_csv:
+    #     logging.info(f'Saved csv file to {save_csv_path}')
    
 def run_video_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], fx=1, fy=1):
+    from main_process.core_process_multiple import MainCalculation
+
     cap = cv2.VideoCapture(VIDEO_PATH)
     if fx < 1 and fy < 1:
         frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
@@ -281,9 +291,8 @@ def run_video_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDE
     
 
 
-    from utils.save_processed_info import save_video_and_index
     filename = out_video.replace('.mp4', '').split('/')[-1]
-    save_analysis_path = f'{SAVE_ANALYSIS_PATH}/{filename}'
+    save_analysis_path = f'{SAVE_ANALYSIS_PATH_MULTI}/{filename}'
     frame_list = [(i,f) for i,f in enumerate(frame_list)]
     save_video_and_index(frame_list, frame_data_list, out_dir=save_analysis_path, fps=fps//FPS_RATE)
     logging.info(f'Saved analysis to {save_analysis_path}.')

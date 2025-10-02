@@ -15,11 +15,15 @@ if __name__ == '__main__':
     args = vars(ap.parse_args())
 
     logging.info(f"RUNNING IN {args['mode']} MODE " + '---'*5)
+    # This mode will track only the swimmer in the middle of the screen
     if args['mode'] == 'VIDEO_SINGLE':
         run_video(debug=args['debug'], save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
+    # This mode track all swimmers on the screen
     elif args['mode'] == 'VIDEO_MULTI':
         run_video_multi(debug=args['debug'], save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
     elif args['mode'] == 'SOCKET':
         run_socket(debug=False, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
+    else:
+        logging.error('NO MODE MATCHED!')
     
    

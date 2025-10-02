@@ -1,4 +1,4 @@
-from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, PIXEL_DENSITY_WIDTH, PIXEL_DENSITY_HEIGHT
+from config.general import POSE_CONFIG, SEG_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, PIXEL_DENSITY_WIDTH, PIXEL_DENSITY_HEIGHT, TIME_WINDOW_STROKE
 from model_caller.pose_model_caller import PoseCallerYOLO
 from model_caller.face_model_caller import FaceCallerYOLO
 from model_caller.seg_model_caller import SegCallerYOLO
@@ -18,7 +18,6 @@ from postprocess.speed_process import SpeedProcess
 from postprocess.anchor_process import AnchorProcess
 from postprocess.lane_divider_process import LaneDivider
 from typing import List
-import torch
 import numpy as np
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
@@ -79,22 +78,23 @@ class MainCalculation:
         self.frame_data_list: List[FrameData] = []
 
         self.pose_config = read_yaml(POSE_CONFIG)
-        self.face_config = read_yaml(FACE_CONFIG)
         self.seg_config = read_yaml(SEG_CONFIG)
-        self.detection_config = read_yaml(DETECT_CONFIG)
+        # self.face_config = read_yaml(FACE_CONFIG)
+        # self.detection_config = read_yaml(DETECT_CONFIG)
 
 
         self.pose_caller = PoseCallerYOLO(self.pose_config['model_path'])
-        self.face_caller = FaceCallerYOLO(self.face_config['model_path'])
         self.seg_caller = SegCallerYOLO(self.seg_config['model_path'])
-        self.detect_caller = DetectionCallerYOLO(self.detection_config['model_path'])
+
+        # self.face_caller = FaceCallerYOLO(self.face_config['model_path'])
+        # self.detect_caller = DetectionCallerYOLO(self.detection_config['model_path'])
 
 
         if torch.cuda.is_available():
             logging.info('CUDA is available. Loading pose model from ' + self.pose_config['model_path'])
-            logging.info('CUDA is available. Loading face model from ' + self.face_config['model_path'])
             logging.info('CUDA is available. Loading segmentation model from ' + self.seg_config['model_path'])
-            logging.info('CUDA is available. Loading detection model from ' + self.detection_config['model_path'])
+            # logging.info('CUDA is available. Loading face model from ' + self.face_config['model_path'])
+            # logging.info('CUDA is available. Loading detection model from ' + self.detection_config['model_path'])
 
         else:
             logging.info('CUDA is not available. Using CPU instead.')
@@ -139,7 +139,7 @@ class MainCalculation:
             frame_data.frame_orientation = FrameDataConst.HORIZONTAL if direction >= 0 else FrameDataConst.VERTICAL
             
         # call models 
-        frame_keypoints = self.pose_caller.get_keypoint(frame, **self.pose_config['inference'])
+        frame_keypoints = self.pose_caller.get_keypoints(frame, **self.pose_config['inference'])
         # if nothing detected, its shape is (N,0,51), the valid skeletons return (0, 17,32)
         if frame_keypoints.shape[1] != 0:
             # and get_valid_skeletons(frame_keypoints).shape[0] != 0:
@@ -182,7 +182,15 @@ class MainCalculation:
                                                                 # previous_interval=self.fps*3)
             
             # count stroke
-            frame_data.stroke_count = self.stroke_process.count_stroke(self.frame_data_list)
+            if len(self.frame_data_list) < TIME_WINDOW_STROKE:
+                frame_data.stroke_count = 0
+            else:
+                temp_frame_data_list = []
+                for i in range(len(self.frame_data_list)-1, len(self.frame_data_list)-TIME_WINDOW_STROKE-1, -1):
+                    temp_frame_data_list.append(self.frame_data_list[i].skeleton[0])
+                temp_frame_data_list = np.array(temp_frame_data_list)
+                # print(temp_frame_data_list.shape)
+                frame_data.stroke_count = self.stroke_process.count_stroke(temp_frame_data_list)
             
             # TODO: classify stroke
             # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)
@@ -215,11 +223,18 @@ class MainCalculation:
                 frame_data.red_marker = self.speed_process.red_marker
                 updated_speed = True
 
+                distance_swum = frame_data.speed_m 
+                stroke_count = frame_data.stroke_count
+                distance_per_stroke = distance_swum/stroke_count * 60 if stroke_count != 0 else 0
+                frame_data.distance_per_stroke = round(distance_per_stroke,2)
+
             else:
                 self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
                 frame_data.speed_m = self.frame_data_list[-1].speed_m
                 frame_data.speed_px = self.frame_data_list[-1].speed_px
                 frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
+                frame_data.distance_per_stroke = self.frame_data_list[-1].distance_per_stroke
+
 
         else:
             self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
@@ -227,6 +242,7 @@ class MainCalculation:
                 frame_data.speed_m = self.frame_data_list[-1].speed_m
                 frame_data.speed_px = self.frame_data_list[-1].speed_px
                 frame_data.speed_pct_change = self.frame_data_list[-1].speed_pct_change
+                frame_data.distance_per_stroke = self.frame_data_list[-1].distance_per_stroke
 
         self.prev_frame = frame
         
