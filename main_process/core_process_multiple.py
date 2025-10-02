@@ -1,12 +1,11 @@
-from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, PIXEL_DENSITY_WIDTH, PIXEL_DENSITY_HEIGHT, TIME_WINDOW_STROKE
+from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, PIXEL_DENSITY_WIDTH, PIXEL_DENSITY_HEIGHT, TIME_WINDOW_STROKE, FPS_RATE, ID_TRACKER_WINDOW
 from model_caller.pose_model_caller import PoseCallerYOLO
-from model_caller.face_model_caller import FaceCallerYOLO
 from model_caller.seg_model_caller import SegCallerYOLO
-from model_caller.detection_model_caller import DetectionCallerYOLO
+from model_caller.track_caller import TrackCallerSkeleton
 import torch 
 import cv2 
 from utils.lane_segment_utils import get_ground, bbox_overlap_or_near
-from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot, draw_detection
+from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot, draw_detection, generate_even_light_colors
 from utils.file_utils import read_yaml
 from utils.skeleton_utils import get_valid_skeletons_from_track, get_bbox
 from postprocess.multiple_data import FrameMultipleData
@@ -56,16 +55,17 @@ class MainCalculation:
         else:
             if abs(temp - np.mean(self.pixel_to_meters))/temp < 0.1:
                 self.pixel_to_meters.append(temp)
-        if len(self.pixel_to_meters) > 10:
+        if len(self.pixel_to_meters) > 20:
             self.pixel_to_meters.pop(0)
 
     def __init__(self, fps:int):
         self.pixel_to_meters = []
 
-        self.fps = fps
+        self.fps = fps # not considered FPS_RATE here
         self.frame_data_list = [] # list of FrameMultipleData
 
-        self.RANDOM_COLORS = np.random.randint(0, 255, (100, 3))
+        # self.RANDOM_COLORS = np.random.randint(0, 255, (100, 3))
+        self.RANDOM_COLORS = generate_even_light_colors(n=30)
 
         self.pose_config = read_yaml(POSE_CONFIG)
         self.face_config = read_yaml(FACE_CONFIG)
@@ -74,16 +74,12 @@ class MainCalculation:
 
 
         self.pose_caller = PoseCallerYOLO(self.pose_config['model_path'])
-        self.face_caller = FaceCallerYOLO(self.face_config['model_path'])
         self.seg_caller = SegCallerYOLO(self.seg_config['model_path'])
-        self.detect_caller = DetectionCallerYOLO(self.detection_config['model_path'])
 
 
         if torch.cuda.is_available():
             logging.info('CUDA is available. Loading pose model from ' + self.pose_config['model_path'])
-            logging.info('CUDA is available. Loading face model from ' + self.face_config['model_path'])
             logging.info('CUDA is available. Loading segmentation model from ' + self.seg_config['model_path'])
-            logging.info('CUDA is available. Loading detection model from ' + self.detection_config['model_path'])
 
         else:
             logging.info('CUDA is not available. Using CPU instead.')
@@ -96,6 +92,7 @@ class MainCalculation:
         self.speed_process = SpeedProcess(fps=self.fps)
         self.anchor_process = AnchorProcess(window=self.fps*5)
         self.lane_divider_process = LaneDivider()
+        self.tracker = TrackCallerSkeleton(window=ID_TRACKER_WINDOW)
 
         self.prev_frame = np.array([])
 
@@ -114,7 +111,6 @@ class MainCalculation:
             frame_data.status_list = self.frame_data_list[-1].status_list.copy()
             frame_data.frame_orientation = self.frame_data_list[-1].frame_orientation
             frame_data.skeleton_list = self.frame_data_list[-1].skeleton_list.copy()
-            # frame_data.red_marker_list = self.frame_data_list[-1].red_marker_list.copy()
         
         frame_data.frame_idx = frame_idx
         lane_divider_bboxes = []
@@ -134,9 +130,15 @@ class MainCalculation:
             valid_skeletons, valid_swimmer_ids = get_valid_skeletons_from_track(track_results) # get multiple valid skeletons
         
         if  frame_keypoints.shape[1] != 0 and valid_skeletons.shape[0] != 0: # at least one valid skeleton
+            valid_bboxes = [get_bbox(skel) for skel in valid_skeletons]
+            valid_swimmer_ids = valid_swimmer_ids.numpy().astype(int)
+            valid_swimmer_ids = self.tracker.reassign_swimmer_id(valid_skeletons, valid_swimmer_ids,
+                                                                 [_frame_data.skeleton_list for _frame_data in self.frame_data_list[-ID_TRACKER_WINDOW:]],
+                                                                 [_frame_data.swimmer_id_list for _frame_data in self.frame_data_list[-ID_TRACKER_WINDOW:]],
+                                                                  )
             frame_data.skeleton_list = valid_skeletons
-            frame_data.swimmer_id_list = valid_swimmer_ids.numpy().astype(int)
-            frame_data.bbox_list = [get_bbox(skel) for skel in frame_data.skeleton_list] # x y w h
+            frame_data.swimmer_id_list = valid_swimmer_ids
+            frame_data.bbox_list = valid_bboxes # x y w h
             frame_data.bbox_area_list = [bbox[2] * bbox[3] for bbox in frame_data.bbox_list]
 
             if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every 10*FREQ_SEGMENT frames
@@ -163,13 +165,22 @@ class MainCalculation:
                                                                 # previous_interval=self.fps*3)
             
             # count stroke
-            frame_data.stroke_count_list = []
-            for swimmer_id in frame_data.swimmer_id_list:
-                for i in range(len(self.frame_data_list)-1, -1, TIME_WINDOW_STROKE-1):
+            if len(self.frame_data_list) >= TIME_WINDOW_STROKE:
+                frame_data.stroke_count_list = []
+                for swimmer_id in frame_data.swimmer_id_list:
                     temp_frame_data_list = []
-                    if swimmer_id in self.frame_data_list[i].swimmer_id_list:
-                        temp_frame_data_list.append(self.frame_data_list[i])
-                        frame_data.stroke_count_list.append(self.stroke_process.count_stroke(temp_frame_data_list))
+                    for j in range(len(self.frame_data_list)-1, len(self.frame_data_list)-TIME_WINDOW_STROKE-1, -1):
+                        if swimmer_id in self.frame_data_list[j].swimmer_id_list:
+                            idx = np.where(np.array(self.frame_data_list[j].swimmer_id_list) == swimmer_id)[0][0]
+                            temp_frame_data_list.append(self.frame_data_list[j].skeleton_list[idx])
+                    if temp_frame_data_list:
+                        strk_count = self.stroke_process.count_stroke(np.array(temp_frame_data_list))
+                        frame_data.stroke_count_list.append(strk_count)
+                    else:
+                        frame_data.stroke_count_list.append(0)
+            else:
+                frame_data.stroke_count_list = [0] * len(frame_data.swimmer_id_list)
+
                         
             # TODO: classify stroke
             # frame_data.stroke = self.stroke_process.classify_stroke(frame_data, self.frame_data_list)
@@ -177,7 +188,7 @@ class MainCalculation:
             # TODO: fix left right swap
             # frame_data.skeleton = side_process.get_correct_side(frame_data.skeleton, frame_data)
                 
-            if frame_idx % FREQ_SEGMENT == 0: # do the following every FREQ_SEGMENT frames
+            if frame_idx % FREQ_SEGMENT == 0: # calculate instantaneous speed every FREQ_SEGMENT frames
                 if len(lane_divider_bboxes) == 0:
                     lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
                 
@@ -215,18 +226,34 @@ class MainCalculation:
                         frame_data.speed_px_list.append(0)
                         frame_data.speed_m_list.append(0)
                         frame_data.speed_pct_change_list.append(0)
-
-                # frame_data.speed_px_list = [self.speed_process.current_speed[swimmer_id] for swimmer_id in frame_data.swimmer_id_list]
-                # frame_data.speed_m_list = [speed/np.mean(self.pixel_to_meters) for speed in frame_data.speed_px_list] # convert to meters
-                # frame_data.speed_pct_change_list = [self.speed_process.pct_change[swimmer_id] for swimmer_id in frame_data.swimmer_id_list]
-                # frame_data.red_marker = self.speed_process.red_marker
                 updated_speed = True
+
+                # Calculate distance per stroke
+                # distance = speed * time, time = TIME_WINDOW_STROKE/(self.fps//FPS_RATE)
+                # this time is used to count strokes in stroke_process
+                # convert stroke count to 3s
+                # distance per stroke = distance / stroke count (in 3s)
+                frame_data.distance_per_stroke_list = []
+                for i in range(len(frame_data.swimmer_id_list)):
+                    distance_swum = frame_data.speed_m_list[i] 
+                    stroke_count = frame_data.stroke_count_list[i]
+                    distance_per_stroke = distance_swum/stroke_count * 60 if stroke_count != 0 else 0
+                    frame_data.distance_per_stroke_list.append(round(distance_per_stroke,2))
 
             else:
                 self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
+                # There are cases when the skeletons are detected but the speed is not updated
+                # In that case, len of skeletons and speed list will not be the same
                 frame_data.speed_m_list = self.frame_data_list[-1].speed_m_list.copy()
                 frame_data.speed_px_list = self.frame_data_list[-1].speed_px_list.copy()
                 frame_data.speed_pct_change_list = self.frame_data_list[-1].speed_pct_change_list.copy()
+                frame_data.distance_per_stroke_list = self.frame_data_list[-1].distance_per_stroke_list.copy()
+                if len(frame_data.speed_m_list) < len(frame_data.skeleton_list): # add 0 to the end of speed list if new swimmer appears
+                    offset = len(frame_data.skeleton_list) - len(frame_data.speed_m_list)
+                    frame_data.speed_m_list.extend([0]*offset)
+                    frame_data.speed_px_list.extend([0]*offset)
+                    frame_data.speed_pct_change_list.extend([0]*offset)
+                    frame_data.distance_per_stroke_list.extend([0]*offset)
 
         else:
             self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
@@ -234,6 +261,7 @@ class MainCalculation:
                 frame_data.speed_m_list = self.frame_data_list[-1].speed_m_list.copy()
                 frame_data.speed_px_list = self.frame_data_list[-1].speed_px_list.copy()
                 frame_data.speed_pct_change_list = self.frame_data_list[-1].speed_pct_change_list.copy()
+                frame_data.distance_per_stroke_list = self.frame_data_list[-1].distance_per_stroke_list.copy()
 
         self.prev_frame = frame
         
@@ -269,12 +297,16 @@ class MainCalculation:
                                             radius=5,
                                             frame_idx=frame_idx_)
         
-        # visualize swimmer id and speed
+        # visualize swimmer id, speed and stroke count
         for i in range(len(frame_data.swimmer_id_list)):
             swimmer_id = frame_data.swimmer_id_list[i]
+
             skel = frame_data.skeleton_list[i]
-            spd = frame_data.speed_m_list[i] if len(frame_data.speed_m_list) > i else 0
-            annotated_txt = f'ID:{swimmer_id} Speed:{spd:.2f}m/s'
+            spd = frame_data.speed_m_list[i] 
+            stroke_count = frame_data.stroke_count_list[i]
+            distance_per_stroke = frame_data.distance_per_stroke_list[i]
+
+            annotated_txt = f'ID:{swimmer_id}, {spd:.2f}m/s, {stroke_count} spm, {distance_per_stroke} dps'
             annotated_frame = write_texts(annotated_frame, [annotated_txt], 10, 
                                           org=(int(skel[0][0]), int(skel[0][1])),
                                           font_scale=0.5, color=self.RANDOM_COLORS[swimmer_id%len(self.RANDOM_COLORS)].tolist()

@@ -8,4 +8,5 @@ inference:
   iou: 0.5
   half: True
   max_det: 50
+  device: 'cuda'
 

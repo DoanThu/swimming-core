@@ -7,6 +7,8 @@ from config.general import FPS_RATE
 from scipy.signal import find_peaks, savgol_filter
 from postprocess.analytics import ExtractParams
 from config.general import TIME_WINDOW_STROKE
+from postprocess.wave_peak_counter import count_wave_peaks_and_plot
+from scipy.stats.mstats import winsorize
 
 class StrokeProcess:
     def __init__(self, fps, time_window=TIME_WINDOW_STROKE) -> None:
@@ -92,42 +94,52 @@ class StrokeProcess:
         return FrameDataConst.FREESTYLE
 
 
-    def count_stroke(self, frame_data_list: List[FrameData]):
+    def count_stroke(self, skeleton_series: np.ndarray):
+        # skeleton_series: shape=(N,17,2), N is number of frames
         
-        if len(frame_data_list) < self.time_window: 
-            return 0
+        if len(skeleton_series) + 10 < self.time_window: 
+            return 0 # not enough points
         
-        # overall_status = [1 if _frame.status != FrameDataConst.STOP else 0 for _frame in frame_data_list[-self.time_window:]]
-        # if np.mean(overall_status) < threshold_status: 
-            # return 0
-
         dist_wrist_head = []
         extractParams = ExtractParams()
 
-        for _frame in frame_data_list[-self.time_window:]:
-            skeleton = _frame.skeleton
+        for skeleton in skeleton_series[-self.time_window:]:
             if len(skeleton) == 0:
                 continue
-            left_wrist, head = skeleton[0][9], skeleton[0][0]
+            left_wrist, head = skeleton[9], skeleton[0]
             real_distance = extractParams.distance(left_wrist[0], left_wrist[1], head[0], head[1])
             dist_wrist_head.append(real_distance) 
 
-        if len(dist_wrist_head) < self.time_window: return 0
-        # dist_wrist_wrist = savgol_filter(dist_wrist_wrist, 51, 3) # window size 51, polynomial order 3
+        if len(dist_wrist_head) + 10 < self.time_window: return 0 # not enough points
 
-        def count_stroke(head_to_wrist_list):
-            from scipy.signal import find_peaks
-            if not head_to_wrist_list: return 0
-            highest_peak, lowest_peak = max(head_to_wrist_list), min(head_to_wrist_list)
-            # print(f'Highest peak = {highest_peak}, lowest peak = {lowest_peak}')
-            if highest_peak - lowest_peak < 0.3: # if no peak detected
-                return 0
-            peaks, _ = find_peaks(head_to_wrist_list, height=highest_peak*0.9, distance=10) # 10 frames apart
-            return len(peaks)
+        # def count_peak_stroke(head_to_wrist_list):
+        #     from scipy.signal import find_peaks
+        #     if not head_to_wrist_list: return 0
+        #     highest_peak, lowest_peak = max(head_to_wrist_list), min(head_to_wrist_list)
+        #     # print(f'Highest peak = {highest_peak}, lowest peak = {lowest_peak}')
+        #     if highest_peak - lowest_peak < 0.3: # if no peak detected
+                # return 0
+            # peaks, _ = find_peaks(head_to_wrist_list, height=highest_peak*0.9, distance=10) # 10 frames apart
+            # return len(peaks)
 
 
         # i_peaks, _ = find_peaks(dist_wrist_wrist, height=0.8, distance=self.fps//FPS_RATE//2) # distance = 0.5s
-        stroke_no = count_stroke(dist_wrist_head)
+        # stroke_no = count_peak_stroke(dist_wrist_head)
+
+        dist_wrist_head = winsorize(np.array(dist_wrist_head), limits=[0.05, 0.05])
+        dist_wrist_head = savgol_filter(dist_wrist_head, window_length=11, polyorder=3)
+
+        stroke_no, peaks_idx, mask, diag = count_wave_peaks_and_plot(
+                                                                dist_wrist_head, self.fps//FPS_RATE, 1, 0.5,
+                                                                clf_kwargs=dict(min_freq=0.5, peak_ratio_thr=6.0, flatness_thr=0.55, ac_peak_thr=0.2),
+                                                                min_prominence=0.3, debug=False
+                                                            )
+        if len(peaks_idx) > 1:
+            diff_peaks = np.diff(peaks_idx)
+            avg_diff = np.mean(diff_peaks)
+            stroke_rate = 60/(avg_diff/(self.fps//FPS_RATE))
+            return round(stroke_rate,2)
+
         duration_in_seconds = self.time_window/(self.fps//FPS_RATE)
         # print(f'len i peak = {len(i_peaks)}')
         # print(f'duration_in_seconds = {duration_in_seconds}')

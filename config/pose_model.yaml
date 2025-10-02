@@ -7,3 +7,4 @@ inference:
   verbose: False
   half: True
   stream_buffer: True
+  device: 'cuda'

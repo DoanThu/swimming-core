@@ -18,8 +18,11 @@ SAVE_JSON_PATH = 'frame_info/interval_{}.json'
 SAVE_CSV_COLUMNS = ['timestamp', 'field', 'value']
 
 # For VIDEO
+# FILENAME = 'DJI_0148.MP4'
+# VIDEO_PATH = f'videos/speed/{FILENAME}' 
+
 FILENAME = 'DJI_0304_resized.MP4'
-VIDEO_PATH = f'videos/RI/{FILENAME}' 
+VIDEO_PATH = f'videos/multi/{FILENAME}' 
 
 # For STREAMING/SOCKET
 DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
@@ -27,12 +30,15 @@ DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
 from datetime import datetime
 current_date_time = datetime.today().strftime('%Y%m%d_%H%M%S')
 
+# Export paths
 SAVE_CSV_PATH = {'VIDEO':f"csv_files/{FILENAME.split('.')[0]}.csv",
                 'SOCKET': f'csv_files/{current_date_time}.csv'
                 }
 SAVE_VIDEO_PATH = {'VIDEO': f"saved_annotated_videos/{FILENAME.split('.')[0]}_output.mp4",
                     'SOCKET': f'saved_stream_videos/{current_date_time}_output.mp4'
                     }
+SAVE_SKELETON_PATH = 'saved_skeletons/'
+SAVE_ANALYSIS_PATH = 'saved_analysis'
 
 
 # Convert pixels to meters
@@ -48,4 +54,5 @@ REAL_SIZE_HEIGHT = D/(F*PIXEL_DENSITY_HEIGHT) # size of 1 pixel in meter
 
 
 # Computation
-TIME_WINDOW_STROKE = 150 # 5 seconds
+TIME_WINDOW_STROKE = 150 # 5 seconds for 30 FPS video
+ID_TRACKER_WINDOW = 30 # 1 second

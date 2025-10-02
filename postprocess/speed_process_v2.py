@@ -92,12 +92,9 @@ class SpeedProcess:
 
 
         current_speed = np.mean(all_markers_count) / (times[-1]-times[i]) * self.fps
-        # print(f'swimmer_id = {swimmer_id}, current_speed = {current_speed}, pct_change = {self.pct_change.get(swimmer_id, 0)}, red_marker = {self.red_marker}')
-        # swimmer_id = swimmer_id.item()
         if swimmer_id not in self.current_speed:
             self.current_speed[swimmer_id] = current_speed
         else:
             self.pct_change[swimmer_id] = (current_speed-self.current_speed[swimmer_id])/self.current_speed[swimmer_id]
             self.current_speed[swimmer_id] = current_speed
-        # print(self.current_speed, self.pct_change)
 

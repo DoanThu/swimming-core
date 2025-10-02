@@ -32,7 +32,7 @@ class FrameMultipleData(SuperDataClass):
     direction_list: list = field(default_factory=list)
     status_list: list = field(default_factory=list)
     skeleton_list: list = field(default_factory=list)
-    bbox_list: torch.Tensor = torch.empty(0, 4) # bbox of the skeletons (xmin, ymin, xmax, ymax)
+    bbox_list: list = field(default_factory=list)
     bbox_area_list: list = field(default_factory=list)
     stroke_list: list = field(default_factory=list)
     stroke_count_list: list = field(default_factory=list)
@@ -43,7 +43,7 @@ class FrameMultipleData(SuperDataClass):
     speed_m_list: list = field(default_factory=list) # speed in meters
     speed_px_list: list = field(default_factory=list) # speed in pixels
     speed_pct_change_list: list = field(default_factory=list) 
-    # red_marker_list: list = field(default_factory=list)
+    distance_per_stroke_list: list = field(default_factory=list)
      
     # process info
     pose_time_list: list = field(default_factory=list)

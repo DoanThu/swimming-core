@@ -2,6 +2,7 @@ import cv2
 import torch 
 import numpy as np
 from typing import List
+import colorsys
 
 # The skeleton is in 17-keypoint YOLO format
 SKELETON = [[[0,1], [1,3], [5,7], [7,9], [11,13], [13,15]], # left color
@@ -150,5 +151,18 @@ def draw_dot(image:np.ndarray, dots:np.ndarray,
 
     return image
 
-    
 		
+def generate_even_light_colors(n=30):
+    """
+    Generate n evenly spaced light RGB colors (pastel-like)
+    suitable for dark backgrounds.
+    Uses HSV space: evenly spaced hues, high value and low saturation.
+    """
+    colors = []
+    for i in range(n):
+        hue = i / n  # evenly spaced hues
+        saturation = 0.4  # lower saturation for pastel effect
+        value = 0.95      # high brightness for visibility on dark backgrounds
+        r, g, b = colorsys.hsv_to_rgb(hue, saturation, value)
+        colors.append([int(r * 255), int(g * 255), int(b * 255)])
+    return np.array(colors)

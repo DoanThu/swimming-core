@@ -40,5 +40,5 @@ class PoseCallerYOLO(PoseCaller):
         Returns:
             dict: include keypoints, bboxes and track ids
         """
-        results = self.model.track(image, persist=True, **kwargs)
+        results = self.model.track(image, persist=True, **kwargs, tracker='config/botsort.yaml')
         return results[0]

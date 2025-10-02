@@ -57,6 +57,8 @@ def get_valid_skeletons_from_track(track_results:torch.Tensor) -> list:
     """
     keypoints = track_results.keypoints.xy
     ids = track_results.boxes.id
+    if ids is None: # keypoints are detected but not tracked
+        return np.zeros((0,0,0)), []
     arr = np.array([
         is_valid_skeleton(skeleton) for skeleton in torch.unbind(keypoints, dim=0)
     ])

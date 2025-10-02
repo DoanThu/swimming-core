@@ -1,3 +1,6 @@
+# This file is temporary and will be removed in future versions
+# It is used to count stroke rate from skeleton data
+
 import numpy as np 
 from scipy.signal import windows
 from scipy.signal import detrend

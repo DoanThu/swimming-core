@@ -1,9 +1,9 @@
-model_path: 'models/detect_640.pt'
+# model_path: 'models/detect_640.pt'
 
-# params for inference 
-inference:
-  imgsz: 640
-  iou: 0.5 
-  verbose: False
-  half: True
-  stream_buffer: True
+# # params for inference 
+# inference:
+#   imgsz: 640
+#   iou: 0.5 
+#   verbose: False
+#   half: True
+#   stream_buffer: True
