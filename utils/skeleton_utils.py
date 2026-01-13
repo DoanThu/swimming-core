@@ -3,67 +3,76 @@ import numpy as np
 from postprocess.single_data import FrameDataConst
 
 
-def is_valid_skeleton(skeleton:torch.Tensor) -> bool:
-    """ Return if the skeleton is valid.
-    A valid skeleton is a skeleton that does not have any point at (0,0), which happens when the model cannot detect the pose.
+def is_valid_skeleton(skeleton: torch.Tensor) -> bool:
+    """Return if the skeleton is valid.
+
+    A valid skeleton is one that does not have all keypoints equal to (0,0).
+    The implementation is device-agnostic and avoids creating new CUDA tensors per call.
 
     Args:
         skeleton (torch.Tensor): shape = (17,2)
 
     Returns:
-        bool: return True if all 17 keypoints are valid
+        bool: True if the skeleton has at least one non-zero joint
     """
-    zero_tensor = torch.zeros(17,2).cuda()
-    compare = torch.eq(zero_tensor, skeleton)
-    return not torch.any(torch.all(compare, dim=1))
+    # skeleton may be on CPU or CUDA; do the comparison in-place on the same device
+    # A skeleton is invalid iff all joints are (0,0). We return True when it's valid.
+    if not torch.is_tensor(skeleton):
+        # Non-tensor input -> treat as invalid
+        return False
+    # (17,2) -> compare elementwise to zero, then check if every joint is zero
+    all_zero_per_joint = torch.all(skeleton == 0, dim=1)  # (17,) bool tensor
+    # skeleton is valid if NOT all joints are zero
+    # .any() returns a tensor; use .item() to convert single boolean (cheap)
+    return (not torch.all(all_zero_per_joint).item())
 
 
-def is_valid_skeletons(skeletons:torch.Tensor) -> bool:
-    """ Return if the list of skeleton is valid.
-    A valid list has all valid skeletons.
+def is_valid_skeletons(skeletons: torch.Tensor) -> bool:
+    """Return True if every skeleton in the batch is valid.
 
-    Args:
-        skeletons (torch.Tensor): shape = (N,17,2)
-
-    Returns:
-        bool: return True if all skeletons are valid
+    Vectorized implementation to avoid Python loops and per-call device allocations.
     """
-    arr = np.array([
-        is_valid_skeleton(skeleton) for skeleton in torch.unbind(skeletons, dim=0)
-    ])
-    return np.all(arr)
+    if not torch.is_tensor(skeletons) or skeletons.numel() == 0:
+        return False
+    # skeletons: (N,17,2) -> per-joint all-zero mask: (N,17)
+    all_zero_per_joint = torch.all(skeletons == 0, dim=2)
+    # a skeleton is invalid if all its joints are zero; we want all skeletons to be valid
+    all_skeletons_valid = torch.logical_not(torch.all(all_zero_per_joint, dim=1)).all()
+    return bool(all_skeletons_valid)
 
-def get_valid_skeletons(skeletons:torch.Tensor) -> list:
-    """Return valid skeletons from skeletons list 
+def get_valid_skeletons(skeletons: torch.Tensor) -> torch.Tensor:
+    """Return valid skeletons from a batch.
 
+    Vectorized and device-agnostic: avoids per-item Python loops and extra CUDA ops.
     Args:
         skeletons (torch.Tensor): shape = (N, 17, 2)
 
     Returns:
-        list: list of valid skeletons shae = (N, 17, 2)
+        torch.Tensor: filtered skeletons (M,17,2) where M <= N
     """
-    arr = np.array([
-        is_valid_skeleton(skeleton) for skeleton in torch.unbind(skeletons, dim=0)
-    ])
-    return skeletons[arr]
+    if not torch.is_tensor(skeletons) or skeletons.numel() == 0:
+        # return an empty tensor with expected rank
+        return skeletons.new_zeros((0, 17, 2))
+    # all_zero_per_joint: (N,17) bool
+    all_zero_per_joint = torch.all(skeletons == 0, dim=2)
+    valid_mask = ~torch.all(all_zero_per_joint, dim=1)
+    return skeletons[valid_mask]
 
-def get_valid_skeletons_from_track(track_results:torch.Tensor) -> list:
-    """Return valid skeletons ids from track_results 
+def get_valid_skeletons_from_track(track_results: torch.Tensor) -> tuple:
+    """Return valid skeletons and ids from track results.
 
-    Args:
-        track_results (dict): contains keypoints and ids 
-    Returns:
-        list: list of valid skeletons and their ids
+    Uses vectorized logic similar to get_valid_skeletons.
     """
     keypoints = track_results.keypoints.xy
     ids = track_results.boxes.id
-    if ids is None: # keypoints are detected but not tracked
-        return np.zeros((0,0,0)), []
-    arr = np.array([
-        is_valid_skeleton(skeleton) for skeleton in torch.unbind(keypoints, dim=0)
-    ])
-    valid_skeletons = keypoints[arr]
-    valid_ids = ids[arr]
+    if ids is None:
+        return keypoints.new_zeros((0, 17, 2)), []
+    if keypoints.numel() == 0:
+        return keypoints.new_zeros((0, 17, 2)), []
+    all_zero_per_joint = torch.all(keypoints == 0, dim=2)
+    valid_mask = ~torch.all(all_zero_per_joint, dim=1)
+    valid_skeletons = keypoints[valid_mask]
+    valid_ids = ids[valid_mask]
     return valid_skeletons, valid_ids
 
 
@@ -79,18 +88,32 @@ def get_bbox(skeleton:torch.Tensor) -> torch.Tensor:
     Returns:
         torch.Tensor: return bbox
     """
-    if skeleton.shape[1] == 0: return (-1,)
-    skeleton = skeleton.cpu().numpy()
-    filtered_skeleton = skeleton[~((skeleton[:, 0] == 0) & (skeleton[:, 1] == 0))]
-    xmin = int(np.min(filtered_skeleton[:, 0]))
-    ymin = int(np.min(filtered_skeleton[:, 1]))
-    xmax = int(np.max(filtered_skeleton[:, 0]))
-    ymax = int(np.max(filtered_skeleton[:, 1]))
+    # Handle empty input
+    if not torch.is_tensor(skeleton) or skeleton.numel() == 0:
+        return (-1,)
 
-    # xmin, ymin = skeleton.min(axis=0).values
-    # xmax, ymax = skeleton.max(axis=0).values
-    # return torch.Tensor([xmin, ymin, xmax, ymax])
-    return [xmin, ymin, xmax-xmin, ymax-ymin]
+    # If given a batch with shape (1,17,2), squeeze to (17,2)
+    if skeleton.dim() == 3 and skeleton.shape[0] == 1:
+        skeleton = skeleton.squeeze(0)
+
+    # Ensure we have shape (17,2)
+    if skeleton.dim() != 2 or skeleton.shape[1] < 2:
+        return (-1,)
+
+    # Create a boolean mask of valid points (not both 0)
+    valid_mask = ~((skeleton[:, 0] == 0) & (skeleton[:, 1] == 0))
+    if valid_mask.sum().item() == 0:
+        return (-1,)
+
+    valid_points = skeleton[valid_mask]
+
+    # Use torch ops (device-agnostic) and convert scalars to Python ints (tiny transfer)
+    xmin = int(torch.min(valid_points[:, 0]).item())
+    ymin = int(torch.min(valid_points[:, 1]).item())
+    xmax = int(torch.max(valid_points[:, 0]).item())
+    ymax = int(torch.max(valid_points[:, 1]).item())
+
+    return [xmin, ymin, xmax - xmin, ymax - ymin]
 
 def get_mid_skeleton_old(skeletons:torch.Tensor, frame_orientation: int, reference_line: int) -> torch.Tensor:
     joint_idx = 0
@@ -108,31 +131,30 @@ def get_mid_skeleton_old(skeletons:torch.Tensor, frame_orientation: int, referen
     return skeletons[closest_index].unsqueeze(0) 
 
 def get_mid_skeleton(skeletons:torch.Tensor, frame_orientation: int, width: int, height: int):
-    skeletons = skeletons.cpu().numpy()
+    # Keep operations on device until final conversion
     if skeletons.shape[1] == 0:
-        return np.zeros((0,17,3))
+        return torch.zeros((0,17,3), device=skeletons.device)
     x_mid, y_mid = width/2, height/2
     
     if frame_orientation == FrameDataConst.HORIZONTAL:
         y_coords = skeletons[:, 0, 1]   # y 
-        mask = abs(y_coords-y_mid)<=100
+        mask = torch.abs(y_coords-y_mid)<=100
         skeletons = skeletons[mask]
-        if len(skeletons) == 0:
-            return np.zeros((0,17,3))
+        if skeletons.shape[0] == 0:
+            return torch.zeros((0,17,3), device=skeletons.device)
         x_coords = skeletons[:, 0, 0]    # x
-        idx = np.argmin(abs(x_coords-x_mid))
+        idx = torch.argmin(torch.abs(x_coords-x_mid))
         skeleton = skeletons[idx]
         
     elif frame_orientation == FrameDataConst.VERTICAL:
         x_coords = skeletons[:, 0, 0]   # x 
-        mask = abs(x_coords-x_mid)<=100
+        mask = torch.abs(x_coords-x_mid)<=100
         skeletons = skeletons[mask]
-        if len(skeletons) == 0:
-            return np.zeros((0,17,3)), (-1,)
+        if skeletons.shape[0] == 0:
+            return torch.zeros((0,17,3), device=skeletons.device)
         y_coords = skeletons[:, 0, 1]    # y
-        idx = np.argmin(abs(y_coords-y_mid))
+        idx = torch.argmin(torch.abs(y_coords-y_mid))
         skeleton = skeletons[idx]
-    skeleton = torch.from_numpy(skeleton)
     return skeleton.unsqueeze(0)
     
     
