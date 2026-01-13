@@ -1,4 +1,5 @@
 import numpy as np 
+import logging
 
 class TrackCaller:
     def __init__(self, window) -> None:
@@ -59,7 +60,7 @@ class TrackCallerBbox(TrackCaller):
                 previous_bboxes = previous_bboxes_list[j] # multiple bboxes in the previous frame
                 previous_ids = previous_ids_list[j] # multiple ids in the previous frame
                 iou_list = [self.get_iou(cur_bbox, previous_bbox) for previous_bbox in previous_bboxes]
-                print(f'iou_list = {iou_list}')
+                logging.info(f'iou_list = {iou_list}')
                 if len(iou_list) == 0: # no bboxes detected
                     continue # go backwards to find
                 argmax_idx = np.argmax(iou_list)
@@ -76,7 +77,7 @@ class TrackCallerBbox(TrackCaller):
                 else:
                     assigned_id = max(max(new_id_list),max(valid_swimmer_ids)) + 1
             new_id_list.append(assigned_id)
-            print(f'old list = {valid_swimmer_ids}, new_list = {new_id_list}')
+            logging.info(f'old list = {valid_swimmer_ids}, new_list = {new_id_list}')
         return np.array(new_id_list)
 
 
@@ -136,4 +137,3 @@ class TrackCallerSkeleton(TrackCaller):
                 max_id += 1
             # print(f'old list = {valid_swimmer_ids}, new_list = {new_id_list}')
         return np.array(new_id_list)
-

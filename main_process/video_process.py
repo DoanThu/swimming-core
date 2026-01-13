@@ -275,13 +275,6 @@ def run_video_multi_threaded(debug=False, save_csv=False, out_video=SAVE_VIDEO_P
     
     logging.info(f'frame_width={frame_width}, frame_height={frame_height}, fps = {fps}')
 
-    if save_csv:
-        if os.path.exists(SAVE_CSV_PATH['VIDEO']):
-            os.remove(SAVE_CSV_PATH['VIDEO'])
-        write_to_csv(','.join(SAVE_CSV_COLUMNS), SAVE_CSV_PATH['VIDEO'])
-        
-    save_csv_path = SAVE_CSV_PATH['VIDEO']
-    
     
     calculate_frame = MainCalculation(fps)
     extractParams = ExtractParams()
@@ -365,8 +358,6 @@ def run_video_multi_threaded(debug=False, save_csv=False, out_video=SAVE_VIDEO_P
             else:
                 cap.release()
                 output.release()
-                if save_csv:
-                    logging.info(f"Saved csv file to {SAVE_CSV_PATH['VIDEO']}")
                 logging.info(f'Saved video to {out_video}')
                 pose_in_q.put(None);  pose_thread.stop_flag.set();  pose_thread.join()
                 seg_in_q.put(None);   seg_thread.stop_flag.set();   seg_thread.join()
@@ -379,8 +370,6 @@ def run_video_multi_threaded(debug=False, save_csv=False, out_video=SAVE_VIDEO_P
         except KeyboardInterrupt:
             cap.release()
             output.release()
-            if save_csv:
-                logging.info(f"Saved csv file to {SAVE_CSV_PATH['VIDEO']}")
             logging.info(f'Saved video to {out_video}')
             pose_in_q.put(None);  pose_thread.stop_flag.set();  pose_thread.join()
             seg_in_q.put(None);   seg_thread.stop_flag.set();   seg_thread.join()
@@ -390,14 +379,15 @@ def run_video_multi_threaded(debug=False, save_csv=False, out_video=SAVE_VIDEO_P
                 pass
             sys.exit()
     
-    total_time_list = [fd.total_time for fd in frame_data_list if fd.total_time is not None]
-    print('Average processing  time and std dev per frame:', np.mean(total_time_list)*1000.0, np.std(total_time_list)*1000.0, 'ms')
-    pose_time_list = [fd.pose_time for fd in frame_data_list if fd.pose_time is not None]
-    print('Average pose model time and std dev per frame:', np.mean(pose_time_list)*1000.0, np.std(pose_time_list)*1000.0, 'ms')
-    seg_time_list = [fd.segment_time for fd in frame_data_list if fd.segment_time is not None]
-    print('Average segmentation model time and std dev per frame:', np.mean(seg_time_list)*1000.0, np.std(seg_time_list)*1000.0, 'ms')
-    analysis_time_list = [fd.analysis_time for fd in frame_data_list if fd.analysis_time is not None]
-    print('Average analysis time and std dev per frame:', np.mean(analysis_time_list)*1000.0, np.std(analysis_time_list)*1000.0, 'ms')
+    if debug:
+        total_time_list = [fd.total_time for fd in frame_data_list if fd.total_time is not None]
+        logging.info(f'Average processing  time and std dev per frame: {np.mean(total_time_list)*1000.0} {np.std(total_time_list)*1000.0} ms')
+        pose_time_list = [fd.pose_time for fd in frame_data_list if fd.pose_time is not None]
+        logging.info(f'Average pose model time and std dev per frame: {np.mean(pose_time_list)*1000.0} {np.std(pose_time_list)*1000.0} ms')
+        seg_time_list = [fd.segment_time for fd in frame_data_list if fd.segment_time is not None]
+        logging.info(f'Average segmentation model time and std dev per frame: {np.mean(seg_time_list)*1000.0} {np.std(seg_time_list)*1000.0} ms')
+        analysis_time_list = [fd.analysis_time for fd in frame_data_list if fd.analysis_time is not None]
+        logging.info(f'Average analysis time and std dev per frame: {np.mean(analysis_time_list)*1000.0} {np.std(analysis_time_list)*1000.0} ms')
 
     filename = out_video.replace('.mp4', '').split('/')[-1]
     save_analysis_path = f'{SAVE_ANALYSIS_PATH_MULTI}/{filename}'
