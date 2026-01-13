@@ -8,6 +8,17 @@ import cv2, json
 def _is_simple(x):
     return isinstance(x, (int, float, str, bool, type(None), np.integer, np.floating))
 
+def _json_default(obj):
+    if isinstance(obj, (np.integer, np.int64)):
+        return int(obj)
+    if isinstance(obj, (np.floating, np.float64)):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if hasattr(obj, 'tolist'):
+        return obj.tolist()
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
 def dataclass_to_row(dc_obj, flatten=True, prefix=""):
     """
     Convert a dataclass (possibly nested) to a flat dict (if flatten=True),
@@ -17,7 +28,7 @@ def dataclass_to_row(dc_obj, flatten=True, prefix=""):
     d = asdict(dc_obj)
 
     if not flatten:
-        return {"meta_json": json.dumps(d)}  # store whole object as JSON
+        return {"meta_json": json.dumps(d, default=_json_default)}  # store whole object as JSON
 
     # Flatten: only keep simple scalars as columns; JSON-pack complex fields
     row = {}
@@ -30,7 +41,7 @@ def dataclass_to_row(dc_obj, flatten=True, prefix=""):
             # pack lists, dicts, nested structures as JSON
             if isinstance(v, np.ndarray):
                 v = v.tolist()
-            row[col] = json.dumps(v)
+            row[col] = json.dumps(v, default=_json_default)
     return row
 
 def save_video_and_index(
