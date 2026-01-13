@@ -2,39 +2,43 @@ import numpy as np
 from postprocess.multiple_data import FrameMultipleData
 from utils.visualize_utils import draw_keypoints, write_texts, draw_segmentation, draw_dot, draw_detection, generate_even_light_colors
 
-RANDOM_COLORS = generate_even_light_colors(n=30)
+RANDOM_COLORS = np.random.permutation(generate_even_light_colors(n=30))
 
 def visualize_results(frame: np.ndarray, 
                       frame_data: FrameMultipleData,
                       lane_divider_bboxes: list,
                       bbox_ground: list,
                       anchor_list: dict,
-                      debug:False) -> np.ndarray:
+                      debug:False,
+                      show_frame_ixd:bool=False
+                      ) -> np.ndarray:
     
     annotated_frame = frame.copy()
     annotated_frame = draw_keypoints(annotated_frame, frame_data.skeleton_list, thickness=1)
-    annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes)
+    if debug:
+        annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes) # draw bbox for lane dividers
 
     if debug:
         if len(bbox_ground) != 0 and bbox_ground[0] != -1:
             annotated_frame = draw_detection(annotated_frame, [bbox_ground])
         texts = frame_data.__str__()
         annotated_frame = write_texts(annotated_frame, texts, 30, org=(30,30))
-    
+
     # draw anchor points    
-    for k,v in anchor_list.items():
-        if debug:
-            frame_idx_ = str(k)
-        else:
-            frame_idx_ = ''
-        point_list = np.array([ap.coord for ap in v])
-        swimmer_ids = np.array([ap.swimmer_id for ap in v])
-        for point, swimmer_id in zip(point_list, swimmer_ids):
-            annotated_frame = draw_dot(annotated_frame, [point], 
-                                        color=RANDOM_COLORS[swimmer_id%len(RANDOM_COLORS)].tolist(),
-                                        radius=5,
-                                        frame_idx=frame_idx_)
-    
+    if debug:
+        for k,v in anchor_list.items():
+            if show_frame_ixd:
+                frame_idx_ = str(k)
+            else:
+                frame_idx_ = ''
+            point_list = np.array([ap.coord for ap in v])
+            swimmer_ids = np.array([ap.swimmer_id for ap in v])
+            for point, swimmer_id in zip(point_list, swimmer_ids):
+                annotated_frame = draw_dot(annotated_frame, [point], 
+                                            color=RANDOM_COLORS[swimmer_id%len(RANDOM_COLORS)].tolist(),
+                                            radius=5,
+                                            frame_idx=frame_idx_)
+        
     # visualize swimmer id, speed and stroke count
     for i in range(len(frame_data.swimmer_id_list)):
         swimmer_id = frame_data.swimmer_id_list[i]
