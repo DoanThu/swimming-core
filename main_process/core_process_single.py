@@ -19,6 +19,7 @@ from postprocess.anchor_process import AnchorProcess
 from postprocess.lane_divider_process import LaneDivider
 from typing import List
 import numpy as np
+import time
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
@@ -114,6 +115,7 @@ class MainCalculation:
 
         
     def swimming_calculation(self, frame:np.array, frame_idx:int, debug:bool=True) -> tuple:
+        init_time = time.perf_counter()
         if len(self.prev_frame) == 0:
             self.prev_frame = frame
 
@@ -134,12 +136,16 @@ class MainCalculation:
 
          # get full lane divider for frame orientation
         if frame_idx % (10*FREQ_SEGMENT) == 0: # do the following every 10*FREQ_SEGMENT frames
+            start_time = time.perf_counter()
             lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
+            frame_data.segment_time = time.perf_counter() - start_time
             direction = sum([1 if w > h else -1 for _,_,w,h in lane_divider_bboxes])
             frame_data.frame_orientation = FrameDataConst.HORIZONTAL if direction >= 0 else FrameDataConst.VERTICAL
             
         # call models 
+        start_time = time.perf_counter()
         frame_keypoints = self.pose_caller.get_keypoints(frame, **self.pose_config['inference'])
+        frame_data.pose_time = time.perf_counter() - start_time
         # if nothing detected, its shape is (N,0,51), the valid skeletons return (0, 17,32)
         if frame_keypoints.shape[1] != 0:
             # and get_valid_skeletons(frame_keypoints).shape[0] != 0:
@@ -200,8 +206,11 @@ class MainCalculation:
                 
             if frame_idx % FREQ_SEGMENT == 0: # do the following every FREQ_SEGMENT frames
                 if len(lane_divider_bboxes) == 0:
+                    start_time = time.perf_counter()
                     lane_divider_bboxes = self.seg_caller.get_lane_dividers(frame, **self.seg_config['inference'])
+                    frame_data.segment_time = time.perf_counter() - start_time
                 
+                start_time = time.perf_counter()
                 # generate random points inside the lane
                 for x,y,w,h in lane_divider_bboxes:
                     if frame_data.frame_orientation == FrameDataConst.HORIZONTAL:
@@ -213,8 +222,10 @@ class MainCalculation:
                     self.anchor_process.add_random_anchor_points(frame_idx, random_x, random_y)
 
                 self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, lane_divider_bboxes)
-
+                frame_data.anchor_update_time = time.perf_counter() - start_time
+                
                 # calculate speed
+                start_time = time.perf_counter()
                 self.speed_process.calculate_speed(frame, frame_data, self.anchor_process.anchor_list,
                                                     lane_divider_bboxes) # return speed in pixels
                 frame_data.speed_px = self.speed_process.current_speed
@@ -227,6 +238,8 @@ class MainCalculation:
                 stroke_count = frame_data.stroke_count
                 distance_per_stroke = distance_swum/stroke_count * 60 if stroke_count != 0 else 0
                 frame_data.distance_per_stroke = round(distance_per_stroke,2)
+
+                frame_data.speed_calculation_time = time.perf_counter() - start_time
 
             else:
                 self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
@@ -253,6 +266,9 @@ class MainCalculation:
         # append current frame to list
         self.frame_data_list.append(frame_data)
 
+        # Visualization
+        start_time = time.perf_counter()
+
         annotated_frame = frame.copy()
         annotated_frame = draw_keypoints(annotated_frame, frame_data.skeleton, thickness=1)
 
@@ -272,9 +288,12 @@ class MainCalculation:
             annotated_frame = draw_dot(annotated_frame, v, 
                                         color=self.RANDOM_COLORS[k%len(self.RANDOM_COLORS)].tolist(), radius=2,
                                         frame_idx=frame_idx_)
+        frame_data.visualization_time = time.perf_counter() - start_time
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
             self.frame_data_list.pop(0)
+
+        frame_data.total_time = time.perf_counter() - init_time
             
         return annotated_frame, frame_data, updated_speed, overlap
     
