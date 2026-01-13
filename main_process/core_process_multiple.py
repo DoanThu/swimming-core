@@ -113,6 +113,7 @@ class MainCalculation:
             frame_data.status_list = self.frame_data_list[-1].status_list.copy()
             frame_data.frame_orientation = self.frame_data_list[-1].frame_orientation
             frame_data.skeleton_list = self.frame_data_list[-1].skeleton_list.copy()
+            frame_data.swimmer_id_list = self.frame_data_list[-1].swimmer_id_list.copy()
         
         frame_data.frame_idx = frame_idx
         lane_divider_bboxes = []
@@ -291,6 +292,7 @@ class MainCalculation:
                 frame_data.speed_px_list = self.frame_data_list[-1].speed_px_list.copy()
                 frame_data.speed_pct_change_list = self.frame_data_list[-1].speed_pct_change_list.copy()
                 frame_data.distance_per_stroke_list = self.frame_data_list[-1].distance_per_stroke_list.copy()
+                frame_data.stroke_count_list = self.frame_data_list[-1].stroke_count_list.copy()
 
         self.prev_frame = frame
         

@@ -113,15 +113,15 @@ class TrackCallerSkeleton(TrackCaller):
                 previous_skeletons = previous_skeletons_list[j] # multiple skeletons in the previous frame
                 previous_ids = previous_ids_list[j] # multiple ids in the previous frame
                 distance_list = [self.distance_x_y(head_position, previous_skeleton[0]) for previous_skeleton in previous_skeletons]
-                # print(f'distance_list = {distance_list}')
                 if len(distance_list) == 0: # no skeletons detected
                     continue # go backwards to find
                 argmin_idx = min(range(len(distance_list)), key=lambda k: distance_list[k][1])
                 if distance_list[argmin_idx][1] > threshold:
                     continue
                 if distance_list[argmin_idx][1] <= threshold:
-                    assigned_id = previous_ids[argmin_idx] # this swimmer id in the previous frame 
-                    break
+                    if argmin_idx < len(previous_ids):
+                        assigned_id = previous_ids[argmin_idx] # this swimmer id in the previous frame 
+                        break
             # if assigned_id == -1: # go backwards and can't find --> assign a new number
                 # if len(new_id_list) == 0:
                     # assigned_id = max(valid_swimmer_ids) + 1

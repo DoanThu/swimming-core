@@ -129,6 +129,14 @@ class MainCalculation:
             frame_data.status_list = self.frame_data_list[-1].status_list.copy()
             frame_data.frame_orientation = self.frame_data_list[-1].frame_orientation
             frame_data.skeleton_list = self.frame_data_list[-1].skeleton_list.copy()
+            
+            prev_ids = self.frame_data_list[-1].swimmer_id_list
+            if isinstance(prev_ids, torch.Tensor):
+                frame_data.swimmer_id_list = prev_ids.clone()
+            elif isinstance(prev_ids, np.ndarray):
+                frame_data.swimmer_id_list = prev_ids.copy()
+            else:
+                frame_data.swimmer_id_list = list(prev_ids)
         
         bbox_ground = []
 
@@ -277,9 +285,10 @@ class MainCalculation:
                 frame_data.speed_px_list = self.frame_data_list[-1].speed_px_list.copy()
                 frame_data.speed_pct_change_list = self.frame_data_list[-1].speed_pct_change_list.copy()
                 frame_data.distance_per_stroke_list = self.frame_data_list[-1].distance_per_stroke_list.copy()
+                frame_data.stroke_count_list = self.frame_data_list[-1].stroke_count_list.copy()
 
-        # frame_data.skeleton_list = frame_data.skeleton_list.cpu().numpy().tolist()
-        frame_data.skeleton_list = frame_data.skeleton_list.numpy().tolist()
+        if torch.is_tensor(frame_data.skeleton_list):
+            frame_data.skeleton_list = frame_data.skeleton_list.cpu().numpy().tolist()
 
         # append current frame to list
         self.frame_data_list.append(frame_data)

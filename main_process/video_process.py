@@ -1,4 +1,4 @@
-from config.general import SAVE_AFTER_SECONDS, SAVE_CSV_PATH, VIDEO_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS, SAVE_SKELETON_PATH, SAVE_ANALYSIS_PATH_SINGLE, SAVE_ANALYSIS_PATH_MULTI, POSE_CONFIG, SEG_CONFIG
+from config.general import SAVE_AFTER_SECONDS, SAVE_CSV_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS, SAVE_SKELETON_PATH, SAVE_ANALYSIS_PATH_SINGLE, SAVE_ANALYSIS_PATH_MULTI, POSE_CONFIG, SEG_CONFIG
 import cv2 
 from utils.file_utils import write_to_csv
 from postprocess.single_data import FrameData
@@ -27,9 +27,9 @@ from utils.file_utils import read_yaml
 import torch
 
 
-def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], fx=1, fy=1, lane_type='segmentation'):
+def run_video(video_path, debug=False, save_csv=False, out_video=None, fx=1, fy=1, lane_type='segmentation'):
     from main_process.core_process_single import MainCalculation
-    cap = cv2.VideoCapture(VIDEO_PATH)
+    cap = cv2.VideoCapture(video_path)
     if fx < 1 and fy < 1:
         frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
     else:
@@ -38,19 +38,28 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
     fps = round(cap.get(cv2.CAP_PROP_FPS))
     frame_idx = -1
 
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    if out_video is None:
+        if not os.path.exists('saved_annotated_videos'):
+            os.makedirs('saved_annotated_videos')
+        out_video = f"saved_annotated_videos/{base_name}_output.mp4"
+
     if not os.path.exists(os.path.dirname(out_video)):
         os.makedirs(os.path.dirname(out_video))
+    if os.path.exists(out_video):
+        os.remove(out_video)
     output = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*'MP4V'),
                              fps//FPS_RATE, (frame_width, frame_height))
     
     logging.info(f'frame_width={frame_width}, frame_height={frame_height}, fps = {fps}')
 
     if save_csv:
-        if os.path.exists(SAVE_CSV_PATH['VIDEO']):
-            os.remove(SAVE_CSV_PATH['VIDEO'])
-        write_to_csv(','.join(SAVE_CSV_COLUMNS), SAVE_CSV_PATH['VIDEO'])
-        
-    save_csv_path = SAVE_CSV_PATH['VIDEO']
+        if not os.path.exists('csv_files'):
+            os.makedirs('csv_files')
+        save_csv_path = f"csv_files/{base_name}.csv"
+        if os.path.exists(save_csv_path):
+            os.remove(save_csv_path)
+        write_to_csv(','.join(SAVE_CSV_COLUMNS), save_csv_path)
     
     
     calculate_frame = MainCalculation(fps)
@@ -101,7 +110,7 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
 
                         if save_csv:
                             data =  second_to_time_str(frame_idx/fps) + ',' + str(frame_data.speed_m) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
-                            write_to_csv(data, SAVE_CSV_PATH['VIDEO'])
+                            write_to_csv(data, save_csv_path)
                         
                         prev_features_list = cur_features_list
                         cur_features_list = []
@@ -116,7 +125,7 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
                 
             else:
                 if save_csv:
-                    logging.info(f"Saved csv file to {SAVE_CSV_PATH['VIDEO']}")
+                    logging.info(f"Saved csv file to {save_csv_path}")
                 cap.release()
                 output.release()
                 logging.info(f'Saved video to {out_video}')
@@ -125,22 +134,22 @@ def run_video(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], f
             cap.release()
             output.release()
             if save_csv:
-                logging.info(f"Saved csv file to {SAVE_CSV_PATH['VIDEO']}")
+                logging.info(f"Saved csv file to {save_csv_path}")
             logging.info(f'Saved video to {out_video}')
             sys.exit()
     
 
-    filename = out_video.replace('.mp4', '').split('/')[-1]
+    filename = os.path.splitext(os.path.basename(out_video))[0]
     save_analysis_path = f'{SAVE_ANALYSIS_PATH_SINGLE}/{filename}'
     frame_list = [(i,f) for i,f in enumerate(frame_list)]
     save_video_and_index(frame_list, frame_data_list, out_dir=save_analysis_path, fps=fps//FPS_RATE)
     logging.info(f'Saved analysis to {save_analysis_path}.')
 
    
-def run_video_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], fx=1, fy=1):
+def run_video_multi(video_path, debug=False, save_csv=False, out_video=None, fx=1, fy=1):
     from main_process.core_process_multiple import MainCalculation
 
-    cap = cv2.VideoCapture(VIDEO_PATH)
+    cap = cv2.VideoCapture(video_path)
     if fx < 1 and fy < 1:
         frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
     else:
@@ -149,19 +158,28 @@ def run_video_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDE
     fps = round(cap.get(cv2.CAP_PROP_FPS))
     frame_idx = -1
 
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    if out_video is None:
+        if not os.path.exists('saved_annotated_videos'):
+            os.makedirs('saved_annotated_videos')
+        out_video = f"saved_annotated_videos/{base_name}_output.mp4"
+
     if not os.path.exists(os.path.dirname(out_video)):
         os.makedirs(os.path.dirname(out_video))
+    if os.path.exists(out_video):
+        os.remove(out_video)
     output = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*'MP4V'),
                              fps//FPS_RATE, (frame_width, frame_height))
     
     logging.info(f'frame_width={frame_width}, frame_height={frame_height}, fps = {fps}')
 
     if save_csv:
-        if os.path.exists(SAVE_CSV_PATH['VIDEO']):
-            os.remove(SAVE_CSV_PATH['VIDEO'])
-        write_to_csv(','.join(SAVE_CSV_COLUMNS), SAVE_CSV_PATH['VIDEO'])
-        
-    save_csv_path = SAVE_CSV_PATH['VIDEO']
+        if not os.path.exists('csv_files'):
+            os.makedirs('csv_files')
+        save_csv_path = f"csv_files/{base_name}.csv"
+        if os.path.exists(save_csv_path):
+            os.remove(save_csv_path)
+        write_to_csv(','.join(SAVE_CSV_COLUMNS), save_csv_path)
     
     
     calculate_frame = MainCalculation(fps)
@@ -216,7 +234,7 @@ def run_video_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDE
 
                 #         if save_csv:
                 #             data =  second_to_time_str(frame_idx/fps) + ',' + str(frame_data.speed_m) + ',' + str(frame_data.speed_pct_change)+ ',' + str(dict_to_string(extractParams.pct_dist_changes, 5)) + ',' + str(dict_to_string(extractParams.pct_angle_changes, 5))
-                #             write_to_csv(data, SAVE_CSV_PATH['VIDEO'])
+                #             write_to_csv(data, save_csv_path)
                         
                 #         prev_features_list = cur_features_list
                 #         cur_features_list = []
@@ -231,27 +249,27 @@ def run_video_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDE
                 cap.release()
                 output.release()
                 if save_csv:
-                    logging.info(f"Saved csv file to {SAVE_CSV_PATH['VIDEO']}")
+                    logging.info(f"Saved csv file to {save_csv_path}")
                 logging.info(f'Saved video to {out_video}')
 
         except KeyboardInterrupt:
             cap.release()
             output.release()
             if save_csv:
-                logging.info(f"Saved csv file to {SAVE_CSV_PATH['VIDEO']}")
+                logging.info(f"Saved csv file to {save_csv_path}")
             logging.info(f'Saved video to {out_video}')
             sys.exit()
     
 
 
-    filename = out_video.replace('.mp4', '').split('/')[-1]
+    filename = os.path.splitext(os.path.basename(out_video))[0]
     save_analysis_path = f'{SAVE_ANALYSIS_PATH_MULTI}/{filename}'
     frame_list = [(i,f) for i,f in enumerate(frame_list)]
     save_video_and_index(frame_list, frame_data_list, out_dir=save_analysis_path, fps=fps//FPS_RATE)
     logging.info(f'Saved analysis to {save_analysis_path}.')
 
 
-def run_video_multi_threaded(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['VIDEO'], fx=1, fy=1):
+def run_video_multi_threaded(video_path, debug=False, save_csv=False, out_video=None, fx=1, fy=1):
     from main_process.core_process_multiple_threaded import MainCalculation
 
     # Runtime knobs to reduce CPU overhead
@@ -259,7 +277,7 @@ def run_video_multi_threaded(debug=False, save_csv=False, out_video=SAVE_VIDEO_P
     cv2.setNumThreads(0)
     
 
-    cap = cv2.VideoCapture(VIDEO_PATH)
+    cap = cv2.VideoCapture(video_path)
     if fx < 1 and fy < 1:
         frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
     else:
@@ -268,8 +286,16 @@ def run_video_multi_threaded(debug=False, save_csv=False, out_video=SAVE_VIDEO_P
     fps = round(cap.get(cv2.CAP_PROP_FPS))
     frame_idx = -2 # start at -1 because we skip first frame for processing
 
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    if out_video is None:
+        if not os.path.exists('saved_annotated_videos'):
+            os.makedirs('saved_annotated_videos')
+        out_video = f"saved_annotated_videos/{base_name}_output.mp4"
+
     if not os.path.exists(os.path.dirname(out_video)):
         os.makedirs(os.path.dirname(out_video))
+    if os.path.exists(out_video):
+        os.remove(out_video)
     output = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*'MP4V'),
                              fps//FPS_RATE, (frame_width, frame_height))
     
@@ -389,7 +415,7 @@ def run_video_multi_threaded(debug=False, save_csv=False, out_video=SAVE_VIDEO_P
         analysis_time_list = [fd.analysis_time for fd in frame_data_list if fd.analysis_time is not None]
         logging.info(f'Average analysis time and std dev per frame: {np.mean(analysis_time_list)*1000.0} {np.std(analysis_time_list)*1000.0} ms')
 
-    filename = out_video.replace('.mp4', '').split('/')[-1]
+    filename = os.path.splitext(os.path.basename(out_video))[0]
     save_analysis_path = f'{SAVE_ANALYSIS_PATH_MULTI}/{filename}'
     frame_list = [(i,f) for i,f in enumerate(frame_list)]
     save_video_and_index(frame_list, frame_data_list, out_dir=save_analysis_path, fps=fps//FPS_RATE)
