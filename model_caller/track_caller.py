@@ -103,9 +103,9 @@ class TrackCallerSkeleton(TrackCaller):
         previous_ids_list = previous_ids_list[-self.window:]
         for i in range(len(valid_skeletons)):
             cur_skeleton = valid_skeletons[i] # 1 skeleton
-            cur_skeleton = cur_skeleton.detach().cpu().numpy()
-            head_position = cur_skeleton[0] # x and y
-            threshold = max(50,abs(cur_skeleton[5][1]-cur_skeleton[6][1])) # shoulder in y axis
+            # Keep tensor on device, only use .item() for scalar values
+            head_position = cur_skeleton[0] # x and y keypoint
+            threshold = max(50, abs(cur_skeleton[5,1].item() - cur_skeleton[6,1].item())) # shoulder in y axis
             cur_id = valid_swimmer_ids[i] # 1 id
             assigned_id = -1
             for j in range(len(previous_skeletons_list)-1,-1,-1): # run backwards

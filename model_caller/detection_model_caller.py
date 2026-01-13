@@ -28,10 +28,12 @@ class DetectionCallerYOLO(DetectionCaller):
         if bboxes == None: return []
         lane_divider_bboxes = [bbox for i, bbox in enumerate(results[0].boxes.xywh) if int(results[0].boxes.cls[i]) == 0]
         
-        final_bboxes = []
-        for bbox in lane_divider_bboxes:
-            x,y,w,h = bbox.cpu().numpy()
-            final_bboxes.append([x,y,w,h])
+        # Convert bboxes to list of lists while staying on device until final return
+        if not lane_divider_bboxes:
+            return []
+        # Stack bboxes and convert them all at once if needed, more efficient
+        stacked_bboxes = torch.stack(lane_divider_bboxes)
+        final_bboxes = stacked_bboxes.tolist()
         return final_bboxes
         
         
