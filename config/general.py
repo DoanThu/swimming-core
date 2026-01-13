@@ -18,11 +18,11 @@ SAVE_JSON_PATH = 'frame_info/interval_{}.json'
 SAVE_CSV_COLUMNS = ['timestamp', 'field', 'value']
 
 # For VIDEO
-# FILENAME = 'DJI_0148.MP4'
-# VIDEO_PATH = f'videos/speed/{FILENAME}' 
-
-FILENAME = 'DJI_0304_resized.MP4'
+FILENAME = 'DJI_0147.MP4' # used for multiple swimmers
 VIDEO_PATH = f'videos/multi/{FILENAME}' 
+
+# FILENAME = 'DJI_0146.MP4' # used for single swimmer
+# VIDEO_PATH = f'videos/speed/{FILENAME}' 
 
 # For STREAMING/SOCKET
 DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
@@ -38,7 +38,8 @@ SAVE_VIDEO_PATH = {'VIDEO': f"saved_annotated_videos/{FILENAME.split('.')[0]}_ou
                     'SOCKET': f'saved_stream_videos/{current_date_time}_output.mp4'
                     }
 SAVE_SKELETON_PATH = 'saved_skeletons/'
-SAVE_ANALYSIS_PATH = 'saved_analysis'
+SAVE_ANALYSIS_PATH_SINGLE = 'saved_analysis/single'
+SAVE_ANALYSIS_PATH_MULTI = 'saved_analysis/multi'
 
 
 # Convert pixels to meters
