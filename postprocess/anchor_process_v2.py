@@ -165,14 +165,14 @@ class AnchorProcess:
                 skeleton = frame_multi_data.skeleton_list[i]
                 head_coord = skeleton[0].cpu().numpy()
                 new_anchors = []
-                if frame_multi_data.frame_orientation == FrameDataConst.VERTICAL and frame_multi_data.direction_list[i] in [FrameDataConst.UP, FrameDataConst.DOWN]:  # vertical frame
+                if frame_multi_data.frame_orientation == FrameDataConst.VERTICAL:  # vertical frame
                     reference_y = head_coord[1]  # y coord
                     for divider in lane_dividers:
                         x, y, w, h = divider
                         new_anchors.extend([[x, reference_y, frame_multi_data.swimmer_id_list[i]],
                                              [x+w, reference_y, frame_multi_data.swimmer_id_list[i]]])
                         
-                elif frame_multi_data.frame_orientation == FrameDataConst.HORIZONTAL and frame_multi_data.direction_list[i] in [FrameDataConst.LEFT, FrameDataConst.RIGHT]:  # horizontal frame
+                elif frame_multi_data.frame_orientation == FrameDataConst.HORIZONTAL:  # horizontal frame
                     reference_x = head_coord[0]  # x coord
                     for divider in lane_dividers:
                         x, y, w, h = divider

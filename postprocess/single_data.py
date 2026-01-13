@@ -50,6 +50,9 @@ class FrameData(SuperDataClass):
     # process info
     pose_time: float = FrameDataConst.UNKNOWN
     segment_time: float = FrameDataConst.UNKNOWN
+    speed_calculation_time: float = FrameDataConst.UNKNOWN
+    anchor_update_time: float = FrameDataConst.UNKNOWN
+    visualization_time: float = FrameDataConst.UNKNOWN
     total_time: float = FrameDataConst.UNKNOWN
     
     def __str__(self) -> List[str]:

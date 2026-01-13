@@ -8,7 +8,7 @@ from scipy.signal import find_peaks
 
 def classify_window_sine_vs_noise(x, fs, min_freq=0.1,
                                   peak_ratio_thr=8.0, flatness_thr=0.5, ac_peak_thr=0.2):
-    x = np.asarray(x, float)
+    # x = np.asarray(x, float)
     n = len(x)
     if n < 16:
         return {"label": "noise", "dominant_frequency_hz": 0.0,
@@ -72,7 +72,7 @@ def build_wave_mask(n, spans, labels):
     return mask
 
 def detect_peaks_in_wave_regions(x, fs, wave_mask, min_prominence=0.2, fdoms=None, spans=None):
-    x = np.asarray(x, float)
+    # x = np.asarray(x, float)
     n = len(x)
     min_distance = 10
     height = max(x)*0.9
@@ -107,7 +107,7 @@ def detect_peaks_in_wave_regions(x, fs, wave_mask, min_prominence=0.2, fdoms=Non
 
 def count_wave_peaks_and_plot(x, fs, window_sec=1.0, step_sec=0.5,
                               clf_kwargs=None, min_prominence=0.2, debug=False):
-    x = np.asarray(x, float)
+    # x = np.asarray(x, float)
     n = len(x)
     if clf_kwargs is None:
         clf_kwargs = dict(min_freq=0.5, peak_ratio_thr=6.0, flatness_thr=0.55, ac_peak_thr=0.2)

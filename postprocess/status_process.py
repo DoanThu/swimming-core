@@ -24,31 +24,31 @@ class StatusProcess:
         Returns:
             int: number that represents the status of the skeleton
         """
-        def get_length(p1: np.ndarray, p2: np.ndarray) -> float:
-            """ Compute length between two 2-D points
+        def get_length(p1: torch.Tensor, p2: torch.Tensor) -> float:
+            """ Compute length between two 2-D points using PyTorch ops
 
             Args:
-                p1 (np.ndarray): first point, size = [1,2]
-                p2 (np.ndarray): second point, size = [1,2]
+                p1 (torch.Tensor): first point, size = [2]
+                p2 (torch.Tensor): second point, size = [2]
 
             Returns:
                 float: distance between 2 input points
             """
-            return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+            return torch.sqrt(((p1 - p2) ** 2).sum()).item()
         
-        left_hip, left_knee, left_ankle = skeleton[0][11].cpu().numpy(), skeleton[0][13].cpu().numpy(), skeleton[0][15].cpu().numpy()
-        right_hip, right_knee, right_ankle = skeleton[0][12].cpu().numpy(), skeleton[0][14].cpu().numpy(), skeleton[0][16].cpu().numpy()
+        left_hip, left_knee, left_ankle = skeleton[0][11], skeleton[0][13], skeleton[0][15]
+        right_hip, right_knee, right_ankle = skeleton[0][12], skeleton[0][14], skeleton[0][16]
         left_leg_length = get_length(left_hip, left_knee) + get_length(left_knee, left_ankle)
         right_leg_length = get_length(right_hip, right_knee) + get_length(right_knee, right_ankle)
         leg_length = max(left_leg_length, right_leg_length)
         
-        left_shoulder, right_shoulder = skeleton[0][5].cpu().numpy(), skeleton[0][6].cpu().numpy()
+        left_shoulder, right_shoulder = skeleton[0][5], skeleton[0][6]
         shoulder_length = get_length(left_shoulder, right_shoulder)
         left_side_length = get_length(left_shoulder, left_hip)
         self.left_side_length_arr = np.append(self.left_side_length_arr, left_side_length)
         self.left_side_length_arr = self.left_side_length_arr[-self.window_size:]
         
-        left_wrist, right_wrist = skeleton[0][9].cpu().numpy(), skeleton[0][10].cpu().numpy()
+        left_wrist, right_wrist = skeleton[0][9], skeleton[0][10]
         wrist_distance = get_length(left_wrist, right_wrist)
         self.wrist_distance_arr = np.append(self.wrist_distance_arr, wrist_distance)
         self.wrist_distance_arr = self.wrist_distance_arr[-self.window_size:]

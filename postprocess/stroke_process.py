@@ -15,41 +15,41 @@ class StrokeProcess:
         self.fps = fps
         self.time_window = time_window
     
-    def match_face(self, swimmer_skeleton: torch.Tensor, face_bboxes: torch.Tensor) -> torch.Tensor:
-        """ Return face that belongs to the skeleton
+    # def match_face(self, swimmer_skeleton: torch.Tensor, face_bboxes: torch.Tensor) -> torch.Tensor:
+    #     """ Return face that belongs to the skeleton
 
-        Args:
-            swimmer_skeleton (torch.Tensor): shape=(1,17,2)
-            face_bboxes (torch.Tensor): shape=(N,4)
+    #     Args:
+    #         swimmer_skeleton (torch.Tensor): shape=(1,17,2)
+    #         face_bboxes (torch.Tensor): shape=(N,4)
 
-        Returns:
-            torch.Tensor: return the bounding box of the face, shape=(1,4)
-        """
+    #     Returns:
+    #         torch.Tensor: return the bounding box of the face, shape=(1,4)
+    #     """
 
-        def get_center(xmin, ymin, xmax, ymax):
-            return (xmin+xmax)/2, (ymin+ymax)/2
+    #     def get_center(xmin, ymin, xmax, ymax):
+    #         return (xmin+xmax)/2, (ymin+ymax)/2
         
-        def dist(p1: torch.Tensor, p2: torch.Tensor) -> float:
-            p1 = [_p.cpu().data.numpy() for _p in p1] 
-            p2 = [_p.cpu().data.numpy() for _p in p2] 
-            return np.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
+    #     def dist(p1: torch.Tensor, p2: torch.Tensor) -> float:
+    #         p1 = [_p.cpu().data.numpy() for _p in p1] 
+    #         p2 = [_p.cpu().data.numpy() for _p in p2] 
+    #         return np.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
         
-        def get_threshold(points) -> float:
-            xmin, ymin = points.min(axis=0).values
-            xmax, ymax = points.max(axis=0).values
-            return max(ymax-ymin,xmax-xmin)
+    #     def get_threshold(points) -> float:
+    #         xmin, ymin = points.min(axis=0).values
+    #         xmax, ymax = points.max(axis=0).values
+    #         return max(ymax-ymin,xmax-xmin)
         
-        nose = swimmer_skeleton[0][0]
-        dist_thres = get_threshold(swimmer_skeleton[0])
-        centers = [get_center(*bbox) for bbox in face_bboxes]
-        dist_arr = [dist(center, nose) for center in centers]
+    #     nose = swimmer_skeleton[0][0]
+    #     dist_thres = get_threshold(swimmer_skeleton[0])
+    #     centers = [get_center(*bbox) for bbox in face_bboxes]
+    #     dist_arr = [dist(center, nose) for center in centers]
         
-        if len(dist_arr) == 0: return 
+    #     if len(dist_arr) == 0: return 
         
-        box_idx = np.argmin(dist_arr)
-        if dist_arr[box_idx] > dist_thres:
-            return
-        return face_bboxes[box_idx]
+    #     box_idx = np.argmin(dist_arr)
+    #     if dist_arr[box_idx] > dist_thres:
+    #         return
+    #     return face_bboxes[box_idx]
 
     def get_length(self, p1: np.ndarray, p2: np.ndarray) -> float:
             """ Compute length between two 2-D points
@@ -94,12 +94,14 @@ class StrokeProcess:
         return FrameDataConst.FREESTYLE
 
 
-    def count_stroke(self, skeleton_series: np.ndarray):
+    def count_stroke(self, skeleton_series: list) -> float:
         # skeleton_series: shape=(N,17,2), N is number of frames
         
         if len(skeleton_series) + 10 < self.time_window: 
             return 0 # not enough points
         
+        # return 0 -> total time ~ 17ms
+
         dist_wrist_head = []
         extractParams = ExtractParams()
 
@@ -112,21 +114,10 @@ class StrokeProcess:
 
         if len(dist_wrist_head) + 10 < self.time_window: return 0 # not enough points
 
-        # def count_peak_stroke(head_to_wrist_list):
-        #     from scipy.signal import find_peaks
-        #     if not head_to_wrist_list: return 0
-        #     highest_peak, lowest_peak = max(head_to_wrist_list), min(head_to_wrist_list)
-        #     # print(f'Highest peak = {highest_peak}, lowest peak = {lowest_peak}')
-        #     if highest_peak - lowest_peak < 0.3: # if no peak detected
-                # return 0
-            # peaks, _ = find_peaks(head_to_wrist_list, height=highest_peak*0.9, distance=10) # 10 frames apart
-            # return len(peaks)
-
-
-        # i_peaks, _ = find_peaks(dist_wrist_wrist, height=0.8, distance=self.fps//FPS_RATE//2) # distance = 0.5s
-        # stroke_no = count_peak_stroke(dist_wrist_head)
-
+        # return 0 -> total time ~ 18ms
+    
         dist_wrist_head = winsorize(np.array(dist_wrist_head), limits=[0.05, 0.05])
+        # return 0 -> total time ~ 20ms
         dist_wrist_head = savgol_filter(dist_wrist_head, window_length=11, polyorder=3)
 
         stroke_no, peaks_idx, mask, diag = count_wave_peaks_and_plot(
@@ -134,6 +125,7 @@ class StrokeProcess:
                                                                 clf_kwargs=dict(min_freq=0.5, peak_ratio_thr=6.0, flatness_thr=0.55, ac_peak_thr=0.2),
                                                                 min_prominence=0.3, debug=False
                                                             )
+        # return 0 -> total time ~ 21ms
         if len(peaks_idx) > 1:
             diff_peaks = np.diff(peaks_idx)
             avg_diff = np.mean(diff_peaks)
@@ -145,4 +137,6 @@ class StrokeProcess:
         # print(f'duration_in_seconds = {duration_in_seconds}')
         stroke_rate = stroke_no*60/duration_in_seconds
         return stroke_rate # stroke per minute
+    
+        # total time ~ 23ms 
 

@@ -46,9 +46,15 @@ class FrameMultipleData(SuperDataClass):
     distance_per_stroke_list: list = field(default_factory=list)
      
     # process info
-    pose_time_list: list = field(default_factory=list)
-    segment_time_list: list = field(default_factory=list)
-    total_time_list: list = field(default_factory=list)
+    pose_time: float = FrameDataConst.UNKNOWN
+    segment_time: float = FrameDataConst.UNKNOWN
+    speed_calculation_time: float = FrameDataConst.UNKNOWN
+    anchor_update_time: float = FrameDataConst.UNKNOWN
+    visualization_time: float = FrameDataConst.UNKNOWN
+    tracking_time: float = FrameDataConst.UNKNOWN
+    count_stroke_time: float = FrameDataConst.UNKNOWN
+    analysis_time: float = FrameDataConst.UNKNOWN
+    total_time: float = FrameDataConst.UNKNOWN
     
     def __str__(self) -> List[str]:
         """ Return a list of key:value pairs in string format for debugging
@@ -58,9 +64,9 @@ class FrameMultipleData(SuperDataClass):
         """
         # direction_str = f'direction:{FrameDataConst.MAP_DIRECTION[self.direction]}'
         # status_str = f'status:{FrameDataConst.MAP_STATUS[self.status]}'
-        speed_m_str = f'speed_m_list:{self.speed_m_list:.2f}'
-        speed_px_str = f'speed_px_list:{self.speed_px_list:.2f}'
-        pct_change_str = f'speed_pct_change_list:{self.speed_pct_change_list:+.2f}'
+        speed_m_str = f'speed_m_list:{self.speed_m_list}'
+        speed_px_str = f'speed_px_list:{self.speed_px_list}'
+        pct_change_str = f'speed_pct_change_list:{self.speed_pct_change_list}'
         # orientation_str = f'orientation:{FrameDataConst.MAP_ORIENTATION[self.frame_orientation]}'
         # red_marker_str = f'red_marker:{self.red_marker}'
         return [speed_m_str, speed_px_str, pct_change_str]
