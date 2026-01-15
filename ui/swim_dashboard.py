@@ -1,49 +1,27 @@
 import streamlit as st
 import os
 import pandas as pd
-import numpy as np
 import altair as alt
 import time
 import socket
-import struct
-import pickle
 import cv2
 import sys
-import torch
 import traceback
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config.general import SERVER_HOST, SERVER_PORT
 from postprocess.multiple_data import FrameMultipleData
+from ui.utils import receive_data, CSS_STYLE
+
+# Constants for UI rendering
+UI_FPS = 30
+CHART_UPDATE_INTERVAL = 1 # seconds
+FRAMES_PER_UPDATE = UI_FPS * CHART_UPDATE_INTERVAL
+MAX_HISTORY_FRAMES = UI_FPS * 10 # Keep 10 seconds of history
 
 st.set_page_config(page_title="Swim Performance Dashboard", layout="wide")
 
 # -------------------------
-# Fake data setup
-# -------------------------
-athlete_ids = [1, 2, 3, 4]
-
-# Generate base trend data
-time_idx = np.arange(0, 60, 5)
-base_speed = 1.9 + 0.1 * np.sin(time_idx / 10)
-
-# Create specific metrics and chart data for each athlete
-athlete_data = {}
-for a in athlete_ids:
-    # Randomize chart data slightly per athlete so they look different
-    noise = np.random.normal(0, 0.05, len(time_idx))
-    athlete_speed_trend = base_speed + (0.05 * a) + noise
-    
-    athlete_data[a] = {
-        "current_speed": athlete_speed_trend[-1],
-        "prev_speed": athlete_speed_trend[-2],
-        "stroke": "Freestyle" if a % 2 != 0 else "Freestyle",
-        "lane": a,
-        "chart_data": pd.DataFrame({"time": time_idx, "speed": athlete_speed_trend}).set_index("time"),
-        "dps": np.random.uniform(1.8, 2.5),
-        "stroke_count": np.random.randint(30, 45)
-    }
-
 leaderboard_df = pd.DataFrame(
     {
         "Athlete #": [101, 102, 103, 104, 105, 106],
@@ -58,56 +36,7 @@ leaderboard_df = pd.DataFrame(
 # -------------------------
 # Styling
 # -------------------------
-st.markdown(
-    """
-    <style>
-    .main { padding-top: 1rem; }
-    h1 { font-size: 1.8rem; font-weight: 700; }
-    
-    /* Coach Card Styling */
-    .metric-card {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 15px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        text-align: center;
-        height: 100%;
-    }
-    .big-metric {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #111827;
-        margin: 0;
-    }
-    .small-label {
-        font-size: 0.8rem;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 5px;
-    }
-    .stroke-badge {
-        background-color: #e0e7ff;
-        color: #4338ca;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    
-    /* Video Container */
-    .video-wrapper {
-        background-color: #000;
-        border-radius: 12px;
-        padding: 10px;
-        margin-bottom: 20px;
-        text-align: center;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown(CSS_STYLE, unsafe_allow_html=True)
 
 # -------------------------
 # Router
@@ -140,37 +69,6 @@ if st.session_state.page == "landing":
 # COACH VIEW
 # -------------------------
 elif st.session_state.page == "coach":
-    def recvall(sock, n):
-        data = bytearray()
-        while len(data) < n:
-            packet = sock.recv(n - len(data))
-            if not packet:
-                return None
-            data.extend(packet)
-        return data
-
-    def receive_data(sock):
-        # 1. Get number of items (pickled)
-        payload_size = struct.calcsize("L")
-        packed_msg_size = recvall(sock, payload_size)
-        if not packed_msg_size: return None
-        msg_size = struct.unpack("L", packed_msg_size)[0]
-        
-        data = recvall(sock, msg_size)
-        if not data: return None
-        num_items = pickle.loads(data)
-        
-        items = []
-        for _ in range(num_items):
-            packed_msg_size = recvall(sock, payload_size)
-            if not packed_msg_size: return None
-            msg_size = struct.unpack("L", packed_msg_size)[0]
-            
-            data = recvall(sock, msg_size)
-            if not data: return None
-            items.append(pickle.loads(data))
-        return items
-
     # 1. Top Navigation
     c1, c2 = st.columns([1, 8])
     with c1:
@@ -195,6 +93,8 @@ elif st.session_state.page == "coach":
         st.session_state.athlete_history = {}
     if 'frame_count' not in st.session_state:
         st.session_state.frame_count = 0
+    if 'slot_mapping' not in st.session_state:
+        st.session_state.slot_mapping = {}
 
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -228,45 +128,78 @@ elif st.session_state.page == "coach":
             dps_list = getattr(frame_data, 'distance_per_stroke_list', [])
             
             st.session_state.frame_count += 1
-            t_idx = st.session_state.frame_count
+            current_sim_time = st.session_state.frame_count / UI_FPS
+            current_time = time.time()
             
             # Update History
+            active_uids = []
             for i, uid in enumerate(ids):
                 uid = int(uid)
+                active_uids.append(uid)
                 if uid not in st.session_state.athlete_history:
                     st.session_state.athlete_history[uid] = {
-                        "times": [], "speeds": []
+                        "times": [], "speeds": [], "last_seen": current_time,
+                        "metrics": {"speed": 0, "stroke": 0, "dps": 0}
                     }
                 hist = st.session_state.athlete_history[uid]
-                hist["times"].append(t_idx)
+                hist["times"].append(current_sim_time)
                 hist["speeds"].append(speeds[i])
-                if len(hist["times"]) > 60:
-                    hist["times"] = hist["times"][-60:]
-                    hist["speeds"] = hist["speeds"][-60:]
+                hist["last_seen"] = current_time
+                hist["metrics"] = {
+                    "speed": speeds[i],
+                    "stroke": strokes[i],
+                    "dps": dps_list[i]
+                }
+                if len(hist["times"]) > MAX_HISTORY_FRAMES:
+                    hist["times"] = hist["times"][-MAX_HISTORY_FRAMES:]
+                    hist["speeds"] = hist["speeds"][-MAX_HISTORY_FRAMES:]
             
-            with perf_placeholder.container():
-                num_athletes = len(ids)
-                if num_athletes == 0:
-                    st.info("No swimmers detected.")
-                else:
-                    cols_per_row = num_athletes if num_athletes <= 4 else 4
-                    for i in range(0, num_athletes, cols_per_row):
-                        row_indices = range(i, min(i + cols_per_row, num_athletes))
-                        cols = st.columns(cols_per_row)
+            # Clear expired data (timeout after 5 seconds)
+            TIMEOUT = 5.0
+            expired_ids = [k for k, v in st.session_state.athlete_history.items() 
+                           if current_time - v.get("last_seen", 0) > TIMEOUT]
+            for uid in expired_ids:
+                del st.session_state.athlete_history[uid]
+                if uid in st.session_state.slot_mapping:
+                    del st.session_state.slot_mapping[uid]
+
+            # Assign slots to new active swimmers
+            used_slots = set(st.session_state.slot_mapping.values())
+            all_slots = set(range(6)) # 6 slots for 2x3 grid
+            available_slots = sorted(list(all_slots - used_slots))
+            
+            for uid in active_uids:
+                if uid not in st.session_state.slot_mapping:
+                    if available_slots:
+                        slot = available_slots.pop(0)
+                        st.session_state.slot_mapping[uid] = slot
+
+            if st.session_state.frame_count % FRAMES_PER_UPDATE == 0:
+                with perf_placeholder.container():
+                    # Create fixed 2x3 grid
+                    rows = [st.columns(3), st.columns(3)]
+                    cols = rows[0] + rows[1] # Flatten to list of 6 columns
+                    
+                    # Reverse mapping to find which UID is in which slot
+                    slot_to_uid = {v: k for k, v in st.session_state.slot_mapping.items()}
+
+                    for slot_idx, col in enumerate(cols):
+                        uid = slot_to_uid.get(slot_idx)
                         
-                        for idx, col in zip(row_indices, cols):
-                            uid = int(ids[idx])
-                            spd = speeds[idx]
-                            strk = strokes[idx]
-                            dps = dps_list[idx]
-                            
-                            hist = st.session_state.athlete_history[uid]
-                            prev_speed = hist["speeds"][-2] if len(hist["speeds"]) > 1 else spd
-                            speed_delta = spd - prev_speed
-                            
-                            chart_df = pd.DataFrame({"time": hist["times"], "speed": hist["speeds"]})
-                            
-                            with col:
+                        with col:
+                            if uid is not None and uid in st.session_state.athlete_history:
+                                hist = st.session_state.athlete_history[uid]
+                                metrics = hist["metrics"]
+                                
+                                spd = metrics["speed"]
+                                strk = metrics["stroke"]
+                                dps = metrics["dps"]
+                                
+                                prev_speed = hist["speeds"][-2] if len(hist["speeds"]) > 1 else spd
+                                speed_delta = spd - prev_speed
+                                
+                                chart_df = pd.DataFrame({"time": hist["times"], "speed": hist["speeds"]})
+                                
                                 with st.container():
                                     st.markdown(f"""
                                     <div class="metric-card">
@@ -294,10 +227,17 @@ elif st.session_state.page == "coach":
                                     
                                     color_hex = ["#2563eb", "#16a34a", "#dc2626", "#d97706"][uid % 4]
                                     chart = alt.Chart(chart_df).mark_line(color=color_hex).encode(
-                                        x=alt.X('time', title='Time'),
+                                        x=alt.X('time', title='Time (s)'),
                                         y=alt.Y('speed', title='Speed (m/s)', scale=alt.Scale(domain=[0, 3.0]))
                                     ).properties(height=150)
                                     st.altair_chart(chart, use_container_width=True)
+                            else:
+                                # Empty slot placeholder
+                                st.markdown(f"""
+                                <div class="metric-card" style="opacity: 0.3; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+                                    <div style="color: #888;">Slot {slot_idx + 1}<br>Waiting...</div>
+                                </div>
+                                """, unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Stream error: {e}")
             print(f"Stream error: {e}")
