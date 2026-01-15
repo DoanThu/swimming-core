@@ -1,4 +1,4 @@
-from config.general import SAVE_AFTER_SECONDS, SAVE_CSV_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS, SAVE_SKELETON_PATH, SAVE_ANALYSIS_PATH_SINGLE, SAVE_ANALYSIS_PATH_MULTI, POSE_CONFIG, SEG_CONFIG
+from config.general import SAVE_AFTER_SECONDS, SAVE_CSV_PATH, SAVE_VIDEO_PATH, FPS_RATE, SAVE_CSV_COLUMNS, SAVE_SKELETON_PATH, SAVE_ANALYSIS_PATH_SINGLE, SAVE_ANALYSIS_PATH_MULTI, POSE_CONFIG, SEG_CONFIG, FREQ_SEGMENT
 import cv2 
 from utils.file_utils import write_to_csv
 from postprocess.single_data import FrameData
@@ -326,6 +326,7 @@ def run_video_multi_threaded(video_path, debug=False, save_csv=False, out_video=
     pose_thread.start()
     seg_thread.start()
     prev_frame = None
+    lane_divider_bboxes = []
 
     while cap.isOpened():
         try:
@@ -346,7 +347,10 @@ def run_video_multi_threaded(video_path, debug=False, save_csv=False, out_video=
                 
                 # Enqueue to BOTH workers
                 pose_in_q.put((frame, frame_idx))
-                seg_in_q.put((frame, frame_idx))
+                
+                run_seg = (frame_idx < 0) or ((frame_idx + FPS_RATE) % FREQ_SEGMENT == 0) 
+                if run_seg:
+                    seg_in_q.put((frame, frame_idx))
 
                 # Run previous frame's calculation while waiting for current frame's results
                 if frame_idx > -1: # skip first frame processing
@@ -360,9 +364,14 @@ def run_video_multi_threaded(video_path, debug=False, save_csv=False, out_video=
                 
                 # Deque from BOTH workers
                 frame_idx_p, frame_keypoints, (p0, p1) = pose_out_q.get()
-                frame_idx_s, lane_divider_bboxes,  (s0, s1) = seg_out_q.get()
-
-                assert frame_idx_p == frame_idx and frame_idx_s == frame_idx
+                
+                if run_seg:
+                    frame_idx_s, lane_divider_bboxes,  (s0, s1) = seg_out_q.get()
+                    assert frame_idx_s == frame_idx
+                else:
+                    s0, s1 = 0, 0
+                
+                assert frame_idx_p == frame_idx
                 if frame_idx > -1:
                     frame_data.pose_time = p1 - p0
                     frame_data.segment_time = s1 - s0
