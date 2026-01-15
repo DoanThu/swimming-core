@@ -20,6 +20,8 @@ UI_FPS = 30
 CHART_UPDATE_INTERVAL = 1 # seconds
 FRAMES_PER_UPDATE = UI_FPS * CHART_UPDATE_INTERVAL
 MAX_HISTORY_FRAMES = UI_FPS * 10 # Keep 10 seconds of history
+TIMEOUT = 5.0 # seconds before considering a swimmer inactive
+SMOOTH_WINDOW = 10
 
 st.set_page_config(page_title="Swim Performance Dashboard", layout="wide")
 
@@ -147,8 +149,6 @@ elif st.session_state.page == "coach":
         st.session_state.athlete_history = {}
     if 'frame_count' not in st.session_state:
         st.session_state.frame_count = 0
-    if 'slot_mapping' not in st.session_state:
-        st.session_state.slot_mapping = {}
 
     if 'socket_receiver' not in st.session_state:
         st.session_state.socket_receiver = SocketReceiver(SERVER_HOST, SERVER_PORT)
@@ -214,36 +214,26 @@ elif st.session_state.page == "coach":
                     hist["speeds"] = hist["speeds"][-MAX_HISTORY_FRAMES:]
             
             # Clear expired data (timeout after 5 seconds)
-            TIMEOUT = 5.0
             expired_ids = [k for k, v in st.session_state.athlete_history.items() 
                            if current_time - v.get("last_seen", 0) > TIMEOUT]
             for uid in expired_ids:
                 del st.session_state.athlete_history[uid]
-                if uid in st.session_state.slot_mapping:
-                    del st.session_state.slot_mapping[uid]
 
-            # Assign slots to new active swimmers
-            used_slots = set(st.session_state.slot_mapping.values())
-            all_slots = set(range(6)) # 6 slots for 2x3 grid
-            available_slots = sorted(list(all_slots - used_slots))
-            
-            for uid in active_uids:
-                if uid not in st.session_state.slot_mapping:
-                    if available_slots:
-                        slot = available_slots.pop(0)
-                        st.session_state.slot_mapping[uid] = slot
+            # Sort swimmers by number of data points (descending)
+            sorted_uids = sorted(
+                st.session_state.athlete_history.keys(),
+                key=lambda k: len(st.session_state.athlete_history[k]["times"]),
+                reverse=True
+            )
 
             if st.session_state.frame_count % FRAMES_PER_UPDATE == 0:
                 with perf_placeholder.container():
                     # Create fixed 2x3 grid
                     rows = [st.columns(3), st.columns(3)]
                     cols = rows[0] + rows[1] # Flatten to list of 6 columns
-                    
-                    # Reverse mapping to find which UID is in which slot
-                    slot_to_uid = {v: k for k, v in st.session_state.slot_mapping.items()}
 
                     for slot_idx, col in enumerate(cols):
-                        uid = slot_to_uid.get(slot_idx)
+                        uid = sorted_uids[slot_idx] if slot_idx < len(sorted_uids) else None
                         
                         with col:
                             if uid is not None and uid in st.session_state.athlete_history:
@@ -258,6 +248,7 @@ elif st.session_state.page == "coach":
                                 speed_delta = spd - prev_speed
                                 
                                 chart_df = pd.DataFrame({"time": hist["times"], "speed": hist["speeds"]})
+                                chart_df["speed"] = chart_df["speed"].rolling(window=SMOOTH_WINDOW, min_periods=1).mean()
                                 
                                 with st.container():
                                     st.markdown(f"""
