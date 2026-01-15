@@ -48,6 +48,8 @@ class PoseCallerYOLO(PoseCaller):
         """
         results = self.model(image, **kwargs)
         keypoints = results[0].keypoints
+        if keypoints is None:
+            return torch.zeros((0, 17, 2))
         return keypoints.xy
     
     def track_keypoints(self, image, **kwargs) -> torch.Tensor:
@@ -87,7 +89,7 @@ class PoseWorker(threading.Thread):
             # Move to CUDA once, fuse, warmup IN THIS THREAD
             self.model = PoseCallerYOLO(self.model_path)
             if hasattr(self.model, "model"):
-                self.model.model.to('cuda')
+                # self.model.model.to('cuda')
                 try:
                     self.model.model.fuse()
                 except Exception:
@@ -127,4 +129,3 @@ class PoseWorker(threading.Thread):
                 torch.cuda.synchronize()
             except Exception:
                 pass
-

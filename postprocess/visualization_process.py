@@ -28,17 +28,15 @@ def visualize_results(frame: np.ndarray,
                                         )
         return annotated_frame
 
-    if debug:
-        annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes) # draw bbox for lane dividers
 
     if debug:
+        annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes) # draw bbox for lane dividers
         if len(bbox_ground) != 0 and bbox_ground[0] != -1:
             annotated_frame = draw_detection(annotated_frame, [bbox_ground])
         texts = frame_data.__str__()
         annotated_frame = write_texts(annotated_frame, texts, 30, org=(30,30))
 
-    # draw anchor points    
-    if debug:
+        # draw anchor points    
         for k,v in anchor_list.items():
             if show_frame_ixd:
                 frame_idx_ = str(k)
