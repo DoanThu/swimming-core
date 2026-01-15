@@ -1,5 +1,5 @@
 import socket,cv2,pickle, struct
-from config.general import FPS_RATE, DEVICE_ID, SAVE_AFTER_SECONDS, SAVE_VIDEO_PATH, SAVE_CSV_PATH, REAL_SIZE_WIDTH
+from config.general import FPS_RATE, DEVICE_ID, SAVE_AFTER_SECONDS, SAVE_VIDEO_PATH, SAVE_CSV_PATH, REAL_SIZE_WIDTH, POSE_CONFIG, SEG_CONFIG, SERVER_HOST, SERVER_PORT
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
@@ -13,6 +13,13 @@ from utils.time_utils import second_to_time_str
 import numpy as np
 from utils.file_utils import write_to_csv
 from postprocess.single_data import FrameDataConst
+from main_process.core_process_multiple_threaded import MainCalculation as MainCalculationMulti
+from model_caller.seg_model_caller import SegWorker
+from model_caller.pose_model_caller import PoseWorker
+from utils.file_utils import read_yaml
+import queue
+import time
+import torch
 
 
 def encode_to_send(data):
@@ -37,9 +44,7 @@ def param_visualization(d_distances, d_angles):
 
 def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'], fx=1.0, fy=1.0, lane_type='segmentation'):
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    host = socket.gethostname()
-    port = 9999
-    serversocket.bind((host, port))
+    serversocket.bind((SERVER_HOST, SERVER_PORT))
     serversocket.listen(5)
 
     logging.info("SERVER STARTED")
@@ -171,4 +176,133 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
         logging.info('Server closed')
         cap.release()
         output.release()
+        logging.info(f'Saved video to {out_video}')
+
+def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'], fx=1.0, fy=1.0, lane_type='segmentation'):
+    # Runtime knobs to reduce CPU overhead
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    cv2.setNumThreads(0)
+
+    serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    serversocket.bind((SERVER_HOST, SERVER_PORT))
+    serversocket.listen(5)
+
+    logging.info("SERVER STARTED (MULTI)")
+
+    try: 
+        while True:
+            clientsocket, addr = serversocket.accept()
+            try:
+                if clientsocket:
+                    logging.info("Got a connection from %s" % str(addr))
+
+                    # Initialize workers
+                    pose_config = read_yaml(POSE_CONFIG)
+                    seg_config = read_yaml(SEG_CONFIG)
+                    pose_in_q, pose_out_q = queue.Queue(maxsize=4), queue.Queue()
+                    seg_in_q,  seg_out_q  = queue.Queue(maxsize=4), queue.Queue()
+
+                    pose_thread = PoseWorker(pose_config['model_path'], pose_in_q, pose_out_q, **pose_config['inference'])
+                    seg_thread  = SegWorker(seg_config['model_path'],  seg_in_q,  seg_out_q, **seg_config['inference'])
+                    
+                    pose_thread.start()
+                    seg_thread.start()
+
+                    cap = cv2.VideoCapture(DEVICE_ID)
+                    if fx < 1 and fy < 1:
+                        frame_width, frame_height = int(cap.get(3)*fx), int(cap.get(4)*fy)
+                    else:
+                        frame_width, frame_height = fx, fy
+                    fps = int(cap.get(cv2.CAP_PROP_FPS))
+                    if fps == 0: fps = 30
+                    common_fps = [24, 30, 60, 120]
+                    fps = common_fps[np.argmin([abs(i-fps) for i in common_fps])]
+
+                    calculate_frame = MainCalculationMulti(fps=fps)
+
+                    if not os.path.exists(os.path.dirname(out_video)):
+                        os.makedirs(os.path.dirname(out_video))
+                    output = cv2.VideoWriter(out_video, cv2.VideoWriter_fourcc(*'MP4V'),
+                                            fps//FPS_RATE, (frame_width, frame_height))
+
+                    frame_idx = -2
+                    prev_frame = None
+                    frame_keypoints = None
+                    lane_divider_bboxes = None
+
+                    while(cap.isOpened()):
+                        ret, frame = cap.read()
+                        if ret:
+                            if fx < 1 and fy < 1:
+                                frame = cv2.resize(frame, (0, 0), fx=fx, fy=fy)
+                            else:
+                                frame = cv2.resize(frame, (fx, fy)) 
+
+                            frame_idx += 1
+                            if frame_idx % (SAVE_AFTER_SECONDS*fps) == 0:
+                                logging.info(f'>>>>> {SAVE_AFTER_SECONDS} seconds elapsed. Current frame idx is {frame_idx}')
+                            
+                            if frame_idx > 0 and frame_idx % FPS_RATE != 0: 
+                                continue
+
+                            # Enqueue to BOTH workers
+                            pose_in_q.put((frame, frame_idx))
+                            seg_in_q.put((frame, frame_idx))
+
+                            # Run previous frame's calculation while waiting for current frame's results
+                            if frame_idx > -1: 
+                                annotated_frame, frame_data, updated_speed, overlap = calculate_frame.swimming_calculation(
+                                    frame=prev_frame, 
+                                    frame_idx=frame_idx,
+                                    frame_keypoints=frame_keypoints, 
+                                    lane_divider_bboxes=lane_divider_bboxes,
+                                    debug=debug)
+                                
+                                send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, prev_frame, frame_data])
+
+                                if out_video:
+                                    output.write(annotated_frame)
+                            
+                            # Deque from BOTH workers
+                            frame_idx_p, frame_keypoints, (p0, p1) = pose_out_q.get()
+                            frame_idx_s, lane_divider_bboxes,  (s0, s1) = seg_out_q.get()
+
+                            prev_frame = frame
+
+                        else:
+                            cap.release()
+                            output.release()
+                            clientsocket.close()
+                            
+                            # Stop workers
+                            pose_in_q.put(None);  pose_thread.stop_flag.set();  pose_thread.join()
+                            seg_in_q.put(None);   seg_thread.stop_flag.set();   seg_thread.join()
+                            try:
+                                torch.cuda.synchronize()
+                            except Exception:
+                                pass
+                            
+                            logging.info('Video ended')
+                            if out_video:
+                                logging.debug(f'Annotated video is saved at {out_video}')
+                            break
+
+            except Exception as e:
+                traceback.print_exc()
+                logging.info("Closed a connection from %s" % str(addr))
+                if 'clientsocket' in locals(): clientsocket.close()
+                if 'cap' in locals(): cap.release()
+                if 'pose_thread' in locals() and pose_thread.is_alive():
+                    pose_in_q.put(None); pose_thread.stop_flag.set(); pose_thread.join()
+                if 'seg_thread' in locals() and seg_thread.is_alive():
+                    seg_in_q.put(None); seg_thread.stop_flag.set(); seg_thread.join()
+                if out_video:
+                    logging.debug(f'Annotated video is saved at {out_video}')
+
+
+    except KeyboardInterrupt:
+        serversocket.close()
+        logging.info('Server closed')
+        if 'cap' in locals(): cap.release()
+        if 'output' in locals(): output.release()
         logging.info(f'Saved video to {out_video}')

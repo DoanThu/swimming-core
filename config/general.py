@@ -1,3 +1,4 @@
+import socket
 # Input video has FPS of 60
 FPS_RATE = 2 # read every n frames, needs to be a factor of with freq_frame_idx in seg_model.yaml
 MAP_FPS_RATE_FREQ_SEGMENT = {2: 30, 3:30, 4:32}
@@ -18,15 +19,17 @@ SAVE_JSON_PATH = 'frame_info/interval_{}.json'
 SAVE_CSV_COLUMNS = ['timestamp', 'field', 'value']
 
 # For VIDEO
-FILENAME = 'DJI_0147.MP4' # used for multiple swimmers
-VIDEO_PATH = f'videos/multi/{FILENAME}' 
+FILENAME = 'DJI_0306_resized.MP4' # used for multiple swimmers
+VIDEO_PATH = f'videos/compare/{FILENAME}' 
 
 # FILENAME = 'DJI_0146.MP4' # used for single swimmer
 # VIDEO_PATH = f'videos/speed/{FILENAME}' 
 
 # For STREAMING/SOCKET
-DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
-# DEVICE_ID = VIDEO_PATH # Change to video path to debug UI
+# DEVICE_ID = 1 # 0 is laptop webcam, 1 is drone
+DEVICE_ID = VIDEO_PATH # Change to video path to debug UI
+SERVER_HOST = socket.gethostname()
+SERVER_PORT = 9999
 from datetime import datetime
 current_date_time = datetime.today().strftime('%Y%m%d_%H%M%S')
 
