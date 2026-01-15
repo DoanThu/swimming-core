@@ -1,7 +1,6 @@
 from config.general import POSE_CONFIG, FACE_CONFIG, SEG_CONFIG, DETECT_CONFIG, SAVE_AFTER_SECONDS, NO_POINTS_SEGMENTATION, FREQ_SEGMENT, PIXEL_DENSITY_WIDTH, PIXEL_DENSITY_HEIGHT, TIME_WINDOW_STROKE, FPS_RATE, ID_TRACKER_WINDOW
 from model_caller.pose_model_caller import PoseCallerYOLO, PoseWorker
 from model_caller.seg_model_caller import SegCallerYOLO, SegWorker
-# from model_caller.track_caller_fast import TrackCallerSkeleton
 from model_caller.track_caller import TrackCallerSkeleton
 import torch 
 import cv2 
@@ -155,11 +154,11 @@ class MainCalculation:
             valid_bboxes = [get_bbox(skel) for skel in valid_skeletons]
             start_time = time.perf_counter()
             # Keep IDs as tensors for faster processing
-            valid_swimmer_ids = self.tracker.reassign_swimmer_id(valid_skeletons, valid_swimmer_ids,
-                                                                # Use tensor versions when available
+            valid_swimmer_ids = self.tracker.reassign_swimmer_id_v2(valid_skeletons, valid_swimmer_ids,
                                                                 [getattr(_frame_data, 'skeleton_tensor', _frame_data.skeleton_list) 
                                                                  for _frame_data in self.frame_data_list[-ID_TRACKER_WINDOW:]],
                                                                 [_frame_data.swimmer_id_list for _frame_data in self.frame_data_list[-ID_TRACKER_WINDOW:]],
+                                                                frame_data.frame_orientation
                                                                 )
             frame_data.tracking_time = time.perf_counter() - start_time
 
@@ -297,7 +296,7 @@ class MainCalculation:
 
         # Visualization
         start_time = time.perf_counter()
-        annotated_frame = visualize_results(frame, frame_data, lane_divider_bboxes,bbox_ground, self.anchor_process.anchor_list, debug, from_socket=from_socket)
+        annotated_frame = visualize_results(frame, frame_data, lane_divider_bboxes,bbox_ground, self.anchor_process.anchor_list, debug, from_socket)
         frame_data.visualization_time = time.perf_counter() - start_time
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
