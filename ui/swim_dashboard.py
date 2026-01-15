@@ -7,6 +7,8 @@ import socket
 import cv2
 import sys
 import traceback
+import threading
+import queue
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config.general import SERVER_HOST, SERVER_PORT
@@ -33,6 +35,53 @@ leaderboard_df = pd.DataFrame(
     }
 )
 
+class SocketReceiver:
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.queue = queue.Queue(maxsize=10)
+        self.stop_event = threading.Event()
+        self.sock = None
+        self.is_running = False
+
+    def start(self):
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.connect((self.host, self.port))
+            self.is_running = True
+            t = threading.Thread(target=self._receive_loop, daemon=True)
+            t.start()
+            return True
+        except Exception as e:
+            return str(e)
+
+    def _receive_loop(self):
+        while self.is_running and not self.stop_event.is_set():
+            try:
+                data = receive_data(self.sock)
+                if data is None: break
+                if self.queue.full():
+                    try: self.queue.get_nowait()
+                    except queue.Empty: pass
+                self.queue.put(data)
+            except Exception:
+                break
+        self.is_running = False
+        if self.sock: 
+            try: self.sock.close()
+            except: pass
+
+    def get_latest(self):
+        try: return self.queue.get_nowait()
+        except queue.Empty: return None
+    
+    def stop(self):
+        self.stop_event.set()
+        self.is_running = False
+        if self.sock: 
+            try: self.sock.close()
+            except: pass
+
 # -------------------------
 # Styling
 # -------------------------
@@ -48,6 +97,10 @@ if "page" not in st.session_state:
 # LANDING PAGE
 # -------------------------
 if st.session_state.page == "landing":
+    if 'socket_receiver' in st.session_state:
+        st.session_state.socket_receiver.stop()
+        del st.session_state.socket_receiver
+
     st.markdown("<h1 style='text-align: center;'>Swim Performance Dashboard</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center;'>Select a view to continue.</p>", unsafe_allow_html=True)
 
@@ -81,6 +134,7 @@ elif st.session_state.page == "coach":
     # 2. Main Video Feed (Single)
     c_left, c_center, c_right = st.columns([1, 2, 1])
     with c_center:
+        show_skeletons = st.toggle("Show Skeletons", value=True)
         st.markdown('<div class="video-wrapper">', unsafe_allow_html=True)
         video_placeholder = st.empty()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -96,25 +150,30 @@ elif st.session_state.page == "coach":
     if 'slot_mapping' not in st.session_state:
         st.session_state.slot_mapping = {}
 
-    try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((SERVER_HOST, SERVER_PORT))
-        st.toast(f"Connected to {SERVER_HOST}:{SERVER_PORT}")
-    except Exception as e:
-        st.error(f"Connection failed: {e}")
-        st.stop()
+    if 'socket_receiver' not in st.session_state:
+        st.session_state.socket_receiver = SocketReceiver(SERVER_HOST, SERVER_PORT)
+        result = st.session_state.socket_receiver.start()
+        if result is not True:
+            st.error(f"Connection failed: {result}")
+            st.stop()
+        else:
+            st.toast(f"Connected to {SERVER_HOST}:{SERVER_PORT}")
+
+    receiver = st.session_state.socket_receiver
 
     while True:
         try:
-            print('Waiting for data from server...', flush=True)
-            data_list = receive_data(client_socket)
-            if not data_list: break
-            print(f"Received data from server: {len(data_list)} items. Timestamp: {data_list[0]}", flush=True)
+            data_list = receiver.get_latest()
+            if data_list is None:
+                if not receiver.is_running: break
+                time.sleep(0.01)
+                continue
             
             timestamp_str, annotated_frame, raw_frame, frame_data = data_list
             
             # Display Video
-            frame_rgb = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
+            frame_to_show = annotated_frame if show_skeletons else raw_frame
+            frame_rgb = cv2.cvtColor(frame_to_show, cv2.COLOR_BGR2RGB)
             video_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
             
             

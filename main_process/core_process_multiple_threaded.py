@@ -23,7 +23,7 @@ import numpy as np
 import time
 import logging 
 import queue
-from postprocess.visualization_process import visualize_results
+from postprocess.visualization_process import visualize_results, visualize_swimmer_id
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
@@ -114,7 +114,7 @@ class MainCalculation:
         
     def swimming_calculation(self, frame:np.array, frame_idx:int, 
                             frame_keypoints:torch.Tensor, lane_divider_bboxes:List,
-                            debug:bool=True) -> tuple:
+                            debug:bool=True, from_socket:bool=False) -> tuple:
         init_time = time.perf_counter()
         # if len(self.prev_frame) == 0:
         if self.prev_frame is None:
@@ -297,7 +297,7 @@ class MainCalculation:
 
         # Visualization
         start_time = time.perf_counter()
-        annotated_frame = visualize_results(frame, frame_data, lane_divider_bboxes,bbox_ground, self.anchor_process.anchor_list, debug)
+        annotated_frame = visualize_results(frame, frame_data, lane_divider_bboxes,bbox_ground, self.anchor_process.anchor_list, debug, from_socket=from_socket)
         frame_data.visualization_time = time.perf_counter() - start_time
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:

@@ -114,7 +114,7 @@ class MainCalculation:
 
 
         
-    def swimming_calculation(self, frame:np.array, frame_idx:int, debug:bool=True) -> tuple:
+    def swimming_calculation(self, frame:np.array, frame_idx:int, debug:bool=True, from_socket:bool=False) -> tuple:
         init_time = time.perf_counter()
         if len(self.prev_frame) == 0:
             self.prev_frame = frame

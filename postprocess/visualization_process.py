@@ -9,12 +9,25 @@ def visualize_results(frame: np.ndarray,
                       lane_divider_bboxes: list,
                       bbox_ground: list,
                       anchor_list: dict,
-                      debug:False,
-                      show_frame_ixd:bool=False
+                      debug: bool = False,
+                      show_frame_ixd: bool = False,
+                      from_socket: bool = False
                       ) -> np.ndarray:
     
     annotated_frame = frame.copy()
     annotated_frame = draw_keypoints(annotated_frame, frame_data.skeleton_list, thickness=1)
+    
+    if from_socket:
+        for i in range(len(frame_data.swimmer_id_list)):
+            swimmer_id = frame_data.swimmer_id_list[i]
+            skel = frame_data.skeleton_list[i]
+            annotated_txt = f'ID:{swimmer_id}'
+            annotated_frame = write_texts(annotated_frame, [annotated_txt], 10, 
+                                        org=(int(skel[0][0]), int(skel[0][1])),
+                                        font_scale=0.5, color=RANDOM_COLORS[swimmer_id%len(RANDOM_COLORS)].tolist()
+                                        )
+        return annotated_frame
+
     if debug:
         annotated_frame = draw_detection(annotated_frame, lane_divider_bboxes) # draw bbox for lane dividers
 
@@ -49,6 +62,18 @@ def visualize_results(frame: np.ndarray,
         distance_per_stroke = frame_data.distance_per_stroke_list[i]
 
         annotated_txt = f'ID:{swimmer_id}, {spd:.2f}m/s, {stroke_count} spm, {distance_per_stroke} dps'
+        annotated_frame = write_texts(annotated_frame, [annotated_txt], 10, 
+                                    org=(int(skel[0][0]), int(skel[0][1])),
+                                    font_scale=0.5, color=RANDOM_COLORS[swimmer_id%len(RANDOM_COLORS)].tolist()
+                                    )
+    return annotated_frame
+
+def visualize_swimmer_id(frame: np.ndarray, frame_data: FrameMultipleData) -> np.ndarray:
+    annotated_frame = frame.copy()
+    for i in range(len(frame_data.swimmer_id_list)):
+        swimmer_id = frame_data.swimmer_id_list[i]
+        skel = frame_data.skeleton_list[i]
+        annotated_txt = f'ID:{swimmer_id}'
         annotated_frame = write_texts(annotated_frame, [annotated_txt], 10, 
                                     org=(int(skel[0][0]), int(skel[0][1])),
                                     font_scale=0.5, color=RANDOM_COLORS[swimmer_id%len(RANDOM_COLORS)].tolist()

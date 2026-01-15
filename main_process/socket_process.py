@@ -1,5 +1,5 @@
 import socket,cv2,pickle, struct
-from config.general import FPS_RATE, DEVICE_ID, SAVE_AFTER_SECONDS, SAVE_VIDEO_PATH, SAVE_CSV_PATH, REAL_SIZE_WIDTH, POSE_CONFIG, SEG_CONFIG, SERVER_HOST, SERVER_PORT
+from config.general import FPS_RATE, DEVICE_ID, SAVE_AFTER_SECONDS, SAVE_VIDEO_PATH, SAVE_CSV_PATH, POSE_CONFIG, SEG_CONFIG, SERVER_HOST, SERVER_PORT
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
@@ -20,6 +20,7 @@ from utils.file_utils import read_yaml
 import queue
 import time
 import torch
+from postprocess.visualization_process import visualize_swimmer_id
 
 
 def encode_to_send(data):
@@ -93,7 +94,7 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
                             if frame_idx % FPS_RATE != 0: 
                                 continue
 
-                            annotated_frame, frame_data, updated_speed, overlap = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug)
+                            annotated_frame, frame_data, updated_speed, overlap = calculate_frame.swimming_calculation(frame=frame, frame_idx=frame_idx, debug=debug, from_socket=True)
                             
                             if not frame_data.skeleton: continue
 
@@ -256,9 +257,11 @@ def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOC
                                     frame_idx=frame_idx,
                                     frame_keypoints=frame_keypoints, 
                                     lane_divider_bboxes=lane_divider_bboxes,
-                                    debug=debug)
+                                    debug=debug,
+                                    from_socket=True)
                                 
-                                send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, prev_frame, frame_data])
+                                raw_frame_to_client = visualize_swimmer_id(prev_frame, frame_data)
+                                send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, raw_frame_to_client, frame_data])
 
                                 if out_video:
                                     output.write(annotated_frame)
