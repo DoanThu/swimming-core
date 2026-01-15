@@ -108,6 +108,8 @@ class MainCalculation:
         overlap = False
 
         frame_data = FrameMultipleData()
+        frame_data.swimmer_id_list = []
+        frame_data.skeleton_list = []
     
         if len(self.frame_data_list) != 0:
             frame_data.status_list = self.frame_data_list[-1].status_list.copy()

@@ -8,18 +8,11 @@ from postprocess.const import FrameDataConst
 @dataclass
 class SuperDataClass:
     @property
-    def __dict__(self):
-        """
-        get a python dictionary
-        """
-        return asdict(self)
-
-    @property
     def json(self):
         """
         get the json formated string
         """
-        return dumps(self.__dict__)
+        return dumps(asdict(self))
 
 @dataclass
 class FrameData(SuperDataClass):
