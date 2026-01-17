@@ -189,11 +189,20 @@ class MainCalculation:
                             continue
                         temp_frame_data_list.append(self.frame_data_list[j].skeleton_list[idx])
                     if temp_frame_data_list:
-                        # x_ = np.array(temp_frame_data_list)
                         strk_count = self.stroke_process.count_stroke(temp_frame_data_list)
-                        frame_data.stroke_count_list.append(strk_count)
                     else:
-                        frame_data.stroke_count_list.append(0)
+                        strk_count = 0
+                    
+                    if strk_count == 0 and len(self.frame_data_list) > 0:
+                        prev_ids = self.frame_data_list[-1].swimmer_id_list
+                        if isinstance(prev_ids, torch.Tensor): prev_ids = prev_ids.tolist()
+                        elif isinstance(prev_ids, np.ndarray): prev_ids = prev_ids.tolist()
+                        
+                        s_id = int(swimmer_id)
+                        if s_id in prev_ids:
+                            idx = prev_ids.index(s_id)
+                            strk_count = self.frame_data_list[-1].stroke_count_list[idx]
+                    frame_data.stroke_count_list.append(strk_count)
             else:
                 frame_data.stroke_count_list = [0] * len(frame_data.swimmer_id_list)
             # frame_data.stroke_count_list = [0] * len(frame_data.swimmer_id_list)
@@ -224,58 +233,45 @@ class MainCalculation:
                     self.speed_process.calculate_speed(frame, frame_data, swimmer_id,
                                                     self.anchor_process.anchor_list,
                                                     lane_divider_bboxes) # return speed in pixels
-                
-                frame_data.speed_px_list = []
-                frame_data.speed_m_list = []
-                frame_data.speed_pct_change_list = []
-                for swimmer_id in frame_data.swimmer_id_list:
-                    if swimmer_id in self.speed_process.current_speed: # self.speed_process.current_speed is obtained after self.speed_process.calculate_speed
-                        frame_data.speed_px_list.append(self.speed_process.current_speed[swimmer_id])
-                        if len(self.pixel_to_meters) > 0:
-                            frame_data.speed_m_list.append(self.speed_process.current_speed[swimmer_id]/np.mean(self.pixel_to_meters)) # convert to meters
-                        else:
-                            frame_data.speed_m_list.append(0)
-                        if swimmer_id in self.speed_process.pct_change:
-                            frame_data.speed_pct_change_list.append(self.speed_process.pct_change[swimmer_id])
-                        else:
-                            frame_data.speed_pct_change_list.append(0)
-                    else:
-                        frame_data.speed_px_list.append(0)
-                        frame_data.speed_m_list.append(0)
-                        frame_data.speed_pct_change_list.append(0)
                 updated_speed = True
                 frame_data.speed_calculation_time = time.perf_counter() - start_time
-
-                # Calculate distance per stroke
-                # distance = speed * time, time = TIME_WINDOW_STROKE/(self.fps//FPS_RATE)
-                # this time is used to count strokes in stroke_process
-                # convert stroke count to 3s
-                # distance per stroke = distance / stroke count (in 3s)
-                frame_data.distance_per_stroke_list = []
-                for i in range(len(frame_data.swimmer_id_list)):
-                    distance_swum = frame_data.speed_m_list[i] 
-                    stroke_count = frame_data.stroke_count_list[i]
-                    distance_per_stroke = distance_swum/stroke_count * 60 if stroke_count != 0 else 0
-                    frame_data.distance_per_stroke_list.append(round(distance_per_stroke,2))
 
             else:
                 start_time = time.perf_counter()
                 self.anchor_process.update_anchor_points(frame_idx, frame, self.prev_frame, frame_data, [])
                 frame_data.anchor_update_time = time.perf_counter() - start_time
 
-                # There are cases when the skeletons are detected but the speed is not at the frame to update
-                # In that case, len of skeletons and speed list will not be the same
-                # TODO: fix logic here by storing swimmer ids as keys
-                frame_data.speed_m_list = self.frame_data_list[-1].speed_m_list.copy()
-                frame_data.speed_px_list = self.frame_data_list[-1].speed_px_list.copy()
-                frame_data.speed_pct_change_list = self.frame_data_list[-1].speed_pct_change_list.copy()
-                frame_data.distance_per_stroke_list = self.frame_data_list[-1].distance_per_stroke_list.copy()
-                if len(frame_data.speed_m_list) < len(frame_data.skeleton_list): # add 0 to the end of speed list if new swimmer appears
-                    offset = len(frame_data.skeleton_list) - len(frame_data.speed_m_list)
-                    frame_data.speed_m_list.extend([0]*offset)
-                    frame_data.speed_px_list.extend([0]*offset)
-                    frame_data.speed_pct_change_list.extend([0]*offset)
-                    frame_data.distance_per_stroke_list.extend([0]*offset)
+            # Construct speed lists (Always)
+            frame_data.speed_px_list = []
+            frame_data.speed_m_list = []
+            frame_data.speed_pct_change_list = []
+            
+            for swimmer_id in frame_data.swimmer_id_list:
+                s_id = int(swimmer_id)
+                if s_id in self.speed_process.current_speed:
+                    px = self.speed_process.current_speed[s_id]
+                    frame_data.speed_px_list.append(px)
+                    if len(self.pixel_to_meters) > 0:
+                        frame_data.speed_m_list.append(px/np.mean(self.pixel_to_meters))
+                    else:
+                        frame_data.speed_m_list.append(0)
+                    
+                    if s_id in self.speed_process.pct_change:
+                        frame_data.speed_pct_change_list.append(self.speed_process.pct_change[s_id])
+                    else:
+                        frame_data.speed_pct_change_list.append(0)
+                else:
+                    frame_data.speed_px_list.append(0)
+                    frame_data.speed_m_list.append(0)
+                    frame_data.speed_pct_change_list.append(0)
+
+            # Calculate DPS (Always)
+            frame_data.distance_per_stroke_list = []
+            for i in range(len(frame_data.swimmer_id_list)):
+                distance_swum = frame_data.speed_m_list[i] 
+                stroke_count = frame_data.stroke_count_list[i]
+                distance_per_stroke = distance_swum/stroke_count * 60 if stroke_count != 0 else 0
+                frame_data.distance_per_stroke_list.append(round(distance_per_stroke,2))
 
         else:
             start_time = time.perf_counter()
@@ -296,7 +292,7 @@ class MainCalculation:
 
         # Visualization
         start_time = time.perf_counter()
-        annotated_frame = visualize_results(frame, frame_data, lane_divider_bboxes,bbox_ground, self.anchor_process.anchor_list, debug, from_socket)
+        annotated_frame = visualize_results(frame, frame_data, lane_divider_bboxes,bbox_ground, self.anchor_process.anchor_list, debug, from_socket=from_socket)
         frame_data.visualization_time = time.perf_counter() - start_time
             
         if len(self.frame_data_list) > self.fps * SAVE_AFTER_SECONDS:
