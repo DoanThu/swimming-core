@@ -1,5 +1,5 @@
 import socket,cv2,pickle, struct
-from config.general import FPS_RATE, DEVICE_ID, SAVE_AFTER_SECONDS, SAVE_VIDEO_PATH, SAVE_CSV_PATH, POSE_CONFIG, SEG_CONFIG, SERVER_HOST, SERVER_PORT
+from config.general import FPS_RATE, DEVICE_ID, SAVE_AFTER_SECONDS, SAVE_VIDEO_PATH, SAVE_CSV_PATH, POSE_CONFIG, SEG_CONFIG, SERVER_HOST, SERVER_PORT, FREQ_SEGMENT
 import logging 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
@@ -43,7 +43,7 @@ def param_visualization(d_distances, d_angles):
     angle_visualization = get_first_k({feature:d_angles[feature] for feature in angle_feature_list},5)
     return dist_visualization, angle_visualization
 
-def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'], fx=1.0, fy=1.0, lane_type='segmentation'):
+def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'], fx=1.0, fy=1.0):
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serversocket.bind((SERVER_HOST, SERVER_PORT))
     serversocket.listen(5)
@@ -179,7 +179,7 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
         output.release()
         logging.info(f'Saved video to {out_video}')
 
-def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'], fx=1.0, fy=1.0, lane_type='segmentation'):
+def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'], fx=1.0, fy=1.0):
     # Runtime knobs to reduce CPU overhead
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     cv2.setNumThreads(0)
@@ -246,9 +246,13 @@ def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOC
                             if frame_idx > 0 and frame_idx % FPS_RATE != 0: 
                                 continue
 
+                            init_time = time.perf_counter()
                             # Enqueue to BOTH workers
                             pose_in_q.put((frame, frame_idx))
-                            seg_in_q.put((frame, frame_idx))
+                            
+                            run_seg = (frame_idx < 0) or ((frame_idx + FPS_RATE) % FREQ_SEGMENT == 0) 
+                            if run_seg:
+                                seg_in_q.put((frame, frame_idx))
 
                             # Run previous frame's calculation while waiting for current frame's results
                             if frame_idx > -1: 
@@ -260,15 +264,29 @@ def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOC
                                     debug=debug,
                                     from_socket=True)
                                 
+                            # Deque from BOTH workers
+                            frame_idx_p, frame_keypoints, (p0, p1) = pose_out_q.get()
+                            
+                            if run_seg:
+                                frame_idx_s, lane_divider_bboxes,  (s0, s1) = seg_out_q.get()
+                            else:
+                                s0, s1 = 0, 0
+
+                            if frame_idx > -1:
+                                frame_data.pose_time = p1 - p0
+                                frame_data.segment_time = s1 - s0
+                                
+                                torch.cuda.synchronize()
+                                frame_data.total_time = time.perf_counter() - init_time
+
+                                if debug:
+                                    logging.info(f'Pose time: {(p1 - p0)*1000.0:.2f} ms, Seg time: {(s1 - s0)*1000.0:.2f} ms, Total frame time: {frame_data.total_time*1000.0:.2f} ms')
+
                                 raw_frame_to_client = visualize_swimmer_id(prev_frame, frame_data)
                                 send_to_client(clientsocket, [second_to_time_str(frame_idx/fps), annotated_frame, raw_frame_to_client, frame_data])
 
                                 if out_video:
                                     output.write(annotated_frame)
-                            
-                            # Deque from BOTH workers
-                            frame_idx_p, frame_keypoints, (p0, p1) = pose_out_q.get()
-                            frame_idx_s, lane_divider_bboxes,  (s0, s1) = seg_out_q.get()
 
                             prev_frame = frame
 
