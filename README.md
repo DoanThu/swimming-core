@@ -2,20 +2,19 @@
 ## Find device's port
 Run `python ./utils/find_camera.py` to find device's port.
 
-Go to `config/general.py` to change `DEVICE_PORT` accordingly.
+Go to `config/general.py` to change `DEVICE_PORT` accordingly. `DEVICE_PORT` is 0 if use laptop camera, 1 if drone.
+
+Change `DEVICE_PORT` to a video path to run a video.
+
+## Download models
+Download pose model [here](https://drive.google.com/drive/folders/1nhyLbYXetj_6qsy7T_fU9KqUF5aadUXI?usp=drive_link).
+
+Download segmentation model [here](https://drive.google.com/drive/folders/1udW09qW0RTWQafEX3PXyl6kdNArFbd2l?usp=drive_link).
+
+Go to `config/pose_model.yaml` and `config/seg_model.yaml` to change the model paths.
 
 ## Run the server
-`python main.py --mode SOCKET`
-<!-- 
-# Where to start?
-- Start from `main.py`
-- General config is in `config/general.py`
-- Input video and initial position of the swimmer is temporarily in `config/pose_model.yaml`
-- The stats of each frame will be stored as json files -->
-<!-- 
-# Data
-- Please upload your trained models [here](https://drive.google.com/drive/folders/19uo_DWLWtjJ31pi67yNlskhdLTiWDjj4).
+`python main.py --mode SOCKET_MULTI`
 
-- For testing, please use the videos [here](https://drive.google.com/drive/folders/1X-_0Hl811meSo-gxIBtga_3LPKEN9qKU). The nature of these videos is close to the real footage that will be sent to our system. One frame might have more than one swimmer. And the lane markers might be in any colors.
-
-- If you do not have GPU, you can use a json file of keypoints returned from the YOLOv8 model [here](https://drive.google.com/drive/folders/1hveFL5civAPA96WANsPzauscKFyMqmH1?usp=drive_link). However, it is recommended to run this code with GPU. -->
+## Run UI
+`streamlit run ui/swim_dashboard.py`
