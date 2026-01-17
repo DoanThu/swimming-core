@@ -48,9 +48,9 @@ if __name__ == '__main__':
                 # run_video_multi(video_path, debug=args['debug'], save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
                 run_video_multi_threaded(video_path, debug=args['debug'], save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
     elif args['mode'] == 'SOCKET_SINGLE':
-        run_socket(debug=False, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
+        run_socket(debug=args['debug'], save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
     elif args['mode'] == 'SOCKET_MULTI':
-        run_socket_multi(debug=False, save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
+        run_socket_multi(debug=args['debug'], save_csv=True, fx=RESOLUTION[0], fy=RESOLUTION[1])
     else:
         logging.error('NO MODE MATCHED!')
 
