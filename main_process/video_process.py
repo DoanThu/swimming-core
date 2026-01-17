@@ -388,6 +388,15 @@ def run_video_multi_threaded(video_path, debug=False, save_csv=False, out_video=
                     if debug:
                         logging.info(f'Pose time: {(p1 - p0)*1000.0:.2f} ms, Seg time: {(s1 - s0)*1000.0:.2f} ms, Total frame time: {frame_data.total_time*1000.0:.2f} ms')
 
+                process_time = time.perf_counter() - init_time
+                if process_time > (1.0 / fps):
+                    frames_to_skip = int(process_time * fps) - 1
+                    if frames_to_skip > 0:
+                        logging.warning(f"Processing time {process_time*1000:.1f}ms > {1000.0/fps:.1f}ms. Skipping {frames_to_skip} frames.")
+                        for _ in range(frames_to_skip):
+                            cap.grab()
+                            frame_idx += 1
+
                 prev_frame = frame
                     
             else:
