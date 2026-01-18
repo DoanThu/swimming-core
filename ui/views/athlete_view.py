@@ -1,16 +1,8 @@
 import streamlit as st
 import pandas as pd
+import time
+from ui.shared_state import get_shared_metrics
 
-leaderboard_df = pd.DataFrame(
-    {
-        "Athlete #": [101, 102, 103, 104, 105, 106],
-        "Lane": [1, 2, 3, 4, 5, 6],
-        "Speed (m/s)": [2.05, 1.98, 1.96, 1.92, 1.90, 1.85],
-        "Stroke Rate (SPM)": [30, 32, 33, 35, 36, 38],
-        "DPS (m)": [2.4, 2.3, 2.2, 2.0, 1.9, 1.8],
-        "Swim Time (s)": [24.2, 25.1, 25.5, 26.8, 27.0, 28.5],
-    }
-)
 
 def render_athlete_view():
     c1, c2 = st.columns([1, 8])
@@ -34,15 +26,42 @@ def render_athlete_view():
         "Distance Per Stroke": ("DPS (m)", False),
         "Swim Time": ("Swim Time (s)", True)
     }
-    
-    col_name, ascending = metric_map[rank_metric]
-    sorted_df = leaderboard_df.sort_values(col_name, ascending=ascending)
 
     st.markdown(f"### Top {rank_metric}")
-    st.dataframe(
-        sorted_df.style.highlight_min(subset=[col_name], color='#d1fae5') if ascending else sorted_df.style.highlight_max(subset=[col_name], color='#d1fae5'),
-        use_container_width=True,
-        height=300,
-        hide_index=True
-    )
+    table_placeholder = st.empty()
     st.caption("Live ranking updates based on video data.")
+
+    shared_metrics = get_shared_metrics()
+
+    while True:
+        data = shared_metrics.athlete_data
+        
+        if not data:
+            table_placeholder.info("Waiting for data from Coach View...")
+            time.sleep(1)
+            continue
+
+        rows = []
+        for uid, metrics in data.items():
+            rows.append({
+                "Athlete #": uid,
+                "Lane": metrics["lane"],
+                "Speed (m/s)": round(metrics["speed"], 2),
+                "Stroke Rate (SPM)": round(metrics["stroke_rate"], 1),
+                "DPS (m)": round(metrics["dps"], 2),
+                "Swim Time (s)": round(metrics["swim_time"], 1)
+            })
+        
+        if rows:
+            df = pd.DataFrame(rows)
+            col_name, ascending = metric_map[rank_metric]
+            sorted_df = df.sort_values(col_name, ascending=ascending)
+            
+            table_placeholder.dataframe(
+                sorted_df.style.highlight_min(subset=[col_name], color='#d1fae5') if ascending else sorted_df.style.highlight_max(subset=[col_name], color='#d1fae5'),
+                use_container_width=True,
+                height=300,
+                hide_index=True
+            )
+        
+        time.sleep(0.1)

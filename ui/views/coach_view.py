@@ -6,6 +6,7 @@ import altair as alt
 import traceback
 from config.general import SERVER_HOST, SERVER_PORT
 from ui.socket_receiver import SocketReceiver
+from ui.shared_state import get_shared_metrics
 
 # Constants for UI rendering
 UI_FPS = 30
@@ -53,6 +54,7 @@ def render_coach_view():
             st.toast(f"Connected to {SERVER_HOST}:{SERVER_PORT}")
 
     receiver = st.session_state.socket_receiver
+    shared_metrics = get_shared_metrics()
 
     while True:
         try:
@@ -90,7 +92,8 @@ def render_coach_view():
                 active_uids.append(uid)
                 if uid not in st.session_state.athlete_history:
                     st.session_state.athlete_history[uid] = {
-                        "times": [], "speeds": [], "strokes": [], "dps": [], "last_seen": current_time,
+                        "times": [], "speeds": [], "strokes": [], "dps": [], 
+                        "last_seen": current_time, "first_seen": current_time,
                         "metrics": {"speed": 0, "stroke": 0, "dps": 0}
                     }
                 hist = st.session_state.athlete_history[uid]
@@ -122,8 +125,25 @@ def render_coach_view():
                 key=lambda k: len(st.session_state.athlete_history[k]["times"]),
                 reverse=True
             )
-
+            
             if st.session_state.frame_count % FRAMES_PER_UPDATE == 0:
+                # Update Shared Metrics for Athlete View
+                current_shared_data = {}
+                for uid in sorted_uids:
+                    if uid in st.session_state.athlete_history:
+                        hist = st.session_state.athlete_history[uid]
+                        # Calculate simple averages for the leaderboard using the smoothing window
+                        s_window = min(len(hist["speeds"]), SMOOTH_WINDOW)
+                        current_shared_data[uid] = {
+                            "speed": sum(hist["speeds"][-s_window:]) / s_window if s_window > 0 else 0,
+                            "stroke_rate": sum(hist["strokes"][-s_window:]) / s_window if s_window > 0 else 0,
+                            "dps": sum(hist["dps"][-s_window:]) / s_window if s_window > 0 else 0,
+                            "swim_time": current_time - hist.get("first_seen", current_time),
+                            "lane": (uid % 8) + 1
+                        }
+                shared_metrics.athlete_data = current_shared_data
+                shared_metrics.last_updated = current_time
+
                 with perf_placeholder.container():
                     # Create grid based on NUM_CHARTS
                     cols = []
