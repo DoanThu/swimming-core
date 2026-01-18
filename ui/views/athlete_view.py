@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import time
 from ui.shared_state import get_shared_metrics
-
+from ui.config_ui import NUM_CHARTS
 
 def render_athlete_view():
     c1, c2 = st.columns([1, 8])
@@ -55,7 +55,7 @@ def render_athlete_view():
         if rows:
             df = pd.DataFrame(rows)
             col_name, ascending = metric_map[rank_metric]
-            sorted_df = df.sort_values(col_name, ascending=ascending)
+            sorted_df = df.sort_values(col_name, ascending=ascending).head(NUM_CHARTS)
             
             table_placeholder.dataframe(
                 sorted_df.style.highlight_min(subset=[col_name], color='#d1fae5') if ascending else sorted_df.style.highlight_max(subset=[col_name], color='#d1fae5'),

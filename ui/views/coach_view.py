@@ -4,18 +4,10 @@ import cv2
 import pandas as pd
 import altair as alt
 import traceback
-from config.general import SERVER_HOST, SERVER_PORT
-from ui.socket_receiver import SocketReceiver
-from ui.shared_state import get_shared_metrics
+from ui.shared_state import get_shared_metrics, get_stream_manager
+from postprocess.const import FrameDataConst
+from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS
 
-# Constants for UI rendering
-UI_FPS = 30
-CHART_UPDATE_INTERVAL = 1 # seconds
-FRAMES_PER_UPDATE = UI_FPS * CHART_UPDATE_INTERVAL
-MAX_HISTORY_FRAMES = UI_FPS * 10 # Keep 10 seconds of history
-TIMEOUT = 5.0 # seconds before considering a swimmer inactive
-SMOOTH_WINDOW = 10
-NUM_CHARTS = 3
 
 def render_coach_view():
     # 1. Top Navigation
@@ -44,27 +36,29 @@ def render_coach_view():
     if 'frame_count' not in st.session_state:
         st.session_state.frame_count = 0
 
-    if 'socket_receiver' not in st.session_state:
-        st.session_state.socket_receiver = SocketReceiver(SERVER_HOST, SERVER_PORT)
-        result = st.session_state.socket_receiver.start()
-        if result is not True:
-            st.error(f"Connection failed: {result}")
-            st.stop()
-        else:
-            st.toast(f"Connected to {SERVER_HOST}:{SERVER_PORT}")
+    # Use shared stream manager instead of local socket receiver
+    manager = get_stream_manager()
+    result = manager.start()
+    if result is not True and result is not None:
+        st.error(f"Connection failed: {result}")
+        st.stop()
 
-    receiver = st.session_state.socket_receiver
     shared_metrics = get_shared_metrics()
+    last_frame_idx = -1
 
     while True:
         try:
-            data_list = receiver.get_latest()
+            data_list = manager.get_latest_frame()
             if data_list is None:
-                if not receiver.is_running: break
                 time.sleep(0.01)
                 continue
             
             timestamp_str, annotated_frame, raw_frame, frame_data = data_list
+            current_idx = getattr(frame_data, 'frame_idx', -1)
+            if current_idx == last_frame_idx:
+                time.sleep(0.01)
+                continue
+            last_frame_idx = current_idx
             
             # Display Video
             frame_to_show = annotated_frame if show_skeletons else raw_frame
@@ -80,6 +74,27 @@ def render_coach_view():
             speeds = getattr(frame_data, 'speed_m_list', [])
             strokes = getattr(frame_data, 'stroke_rate_list', [])
             dps_list = getattr(frame_data, 'distance_per_stroke_list', [])
+            bboxes = getattr(frame_data, 'bbox_list', [])
+            orientation = getattr(frame_data, 'frame_orientation', FrameDataConst.UNKNOWN)
+
+            # Determine Lanes based on position
+            lane_map = {}
+            if ids and bboxes and len(ids) == len(bboxes):
+                # Vertical (0): Left-to-right (sort by x at index 0)
+                # Horizontal (1): Top-down (sort by y at index 1)
+                sort_idx = 0 if orientation == FrameDataConst.VERTICAL else 1
+                
+                # Create list of (uid, position_value)
+                uid_pos = []
+                for i, uid in enumerate(ids):
+                    if i < len(bboxes):
+                        uid_pos.append((int(uid), bboxes[i][sort_idx]))
+                
+                # Sort by position ascending
+                uid_pos.sort(key=lambda x: x[1])
+                
+                for rank, (u, _) in enumerate(uid_pos):
+                    lane_map[u] = rank + 1
             
             st.session_state.frame_count += 1
             current_sim_time = st.session_state.frame_count / UI_FPS
@@ -139,7 +154,7 @@ def render_coach_view():
                             "stroke_rate": sum(hist["strokes"][-s_window:]) / s_window if s_window > 0 else 0,
                             "dps": sum(hist["dps"][-s_window:]) / s_window if s_window > 0 else 0,
                             "swim_time": current_time - hist.get("first_seen", current_time),
-                            "lane": (uid % 8) + 1
+                            "lane": lane_map.get(uid, (uid % 8) + 1)
                         }
                 shared_metrics.athlete_data = current_shared_data
                 shared_metrics.last_updated = current_time
@@ -169,11 +184,12 @@ def render_coach_view():
                                 chart_df = pd.DataFrame({"time": hist["times"], "speed": hist["speeds"]})
                                 chart_df["speed"] = chart_df["speed"].rolling(window=SMOOTH_WINDOW, min_periods=1).mean()
                                 
+                                lane_num = lane_map.get(uid, '?')
                                 with st.container():
                                     st.markdown(f"""
                                     <div class="metric-card">
                                         <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                                            <span style="font-weight:bold;">ID {uid}</span>
+                                            <span style="font-weight:bold;">ID {uid} - Lane {lane_num}</span>
                                             <span class="stroke-badge">Freestyle</span>
                                         </div>
                                         <div class="small-label">Current Speed</div>
