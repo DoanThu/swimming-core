@@ -28,7 +28,7 @@ class FrameMultipleData(SuperDataClass):
     bbox_list: list = field(default_factory=list)
     bbox_area_list: list = field(default_factory=list)
     stroke_list: list = field(default_factory=list)
-    stroke_count_list: list = field(default_factory=list)
+    stroke_rate_list: list = field(default_factory=list)
     face_up_list: list = field(default_factory=list)
     
     # speed info 

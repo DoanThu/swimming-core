@@ -56,10 +56,10 @@ def visualize_results(frame: np.ndarray,
 
         skel = frame_data.skeleton_list[i]
         spd = frame_data.speed_m_list[i] 
-        stroke_count = frame_data.stroke_count_list[i]
+        stroke_rate = frame_data.stroke_rate_list[i]
         distance_per_stroke = frame_data.distance_per_stroke_list[i]
 
-        annotated_txt = f'ID:{swimmer_id}, {spd:.2f}m/s, {stroke_count} spm, {distance_per_stroke} dps'
+        annotated_txt = f'ID:{swimmer_id}, {spd:.2f}m/s, {stroke_rate} spm, {distance_per_stroke} dps'
         annotated_frame = write_texts(annotated_frame, [annotated_txt], 10, 
                                     org=(int(skel[0][0]), int(skel[0][1])),
                                     font_scale=0.5, color=RANDOM_COLORS[swimmer_id%len(RANDOM_COLORS)].tolist()

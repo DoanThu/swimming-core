@@ -14,6 +14,7 @@ FRAMES_PER_UPDATE = UI_FPS * CHART_UPDATE_INTERVAL
 MAX_HISTORY_FRAMES = UI_FPS * 10 # Keep 10 seconds of history
 TIMEOUT = 5.0 # seconds before considering a swimmer inactive
 SMOOTH_WINDOW = 10
+NUM_CHARTS = 3
 
 def render_coach_view():
     # 1. Top Navigation
@@ -75,7 +76,7 @@ def render_coach_view():
             if hasattr(ids, 'tolist'): ids = ids.tolist()
             
             speeds = getattr(frame_data, 'speed_m_list', [])
-            strokes = getattr(frame_data, 'stroke_count_list', [])
+            strokes = getattr(frame_data, 'stroke_rate_list', [])
             dps_list = getattr(frame_data, 'distance_per_stroke_list', [])
             
             st.session_state.frame_count += 1
@@ -89,12 +90,14 @@ def render_coach_view():
                 active_uids.append(uid)
                 if uid not in st.session_state.athlete_history:
                     st.session_state.athlete_history[uid] = {
-                        "times": [], "speeds": [], "last_seen": current_time,
+                        "times": [], "speeds": [], "strokes": [], "dps": [], "last_seen": current_time,
                         "metrics": {"speed": 0, "stroke": 0, "dps": 0}
                     }
                 hist = st.session_state.athlete_history[uid]
                 hist["times"].append(current_sim_time)
                 hist["speeds"].append(speeds[i])
+                hist["strokes"].append(strokes[i])
+                hist["dps"].append(dps_list[i])
                 hist["last_seen"] = current_time
                 hist["metrics"] = {
                     "speed": speeds[i],
@@ -104,6 +107,8 @@ def render_coach_view():
                 if len(hist["times"]) > MAX_HISTORY_FRAMES:
                     hist["times"] = hist["times"][-MAX_HISTORY_FRAMES:]
                     hist["speeds"] = hist["speeds"][-MAX_HISTORY_FRAMES:]
+                    hist["strokes"] = hist["strokes"][-MAX_HISTORY_FRAMES:]
+                    hist["dps"] = hist["dps"][-MAX_HISTORY_FRAMES:]
             
             # Clear expired data (timeout after 5 seconds)
             expired_ids = [k for k, v in st.session_state.athlete_history.items() 
@@ -120,9 +125,11 @@ def render_coach_view():
 
             if st.session_state.frame_count % FRAMES_PER_UPDATE == 0:
                 with perf_placeholder.container():
-                    # Create fixed 2x3 grid
-                    rows = [st.columns(3), st.columns(3)]
-                    cols = rows[0] + rows[1] # Flatten to list of 6 columns
+                    # Create grid based on NUM_CHARTS
+                    cols = []
+                    for _ in range((NUM_CHARTS + 2) // 3):
+                        cols.extend(st.columns(3))
+                    cols = cols[:NUM_CHARTS]
 
                     for slot_idx, col in enumerate(cols):
                         uid = sorted_uids[slot_idx] if slot_idx < len(sorted_uids) else None
@@ -130,14 +137,14 @@ def render_coach_view():
                         with col:
                             if uid is not None and uid in st.session_state.athlete_history:
                                 hist = st.session_state.athlete_history[uid]
-                                metrics = hist["metrics"]
                                 
-                                spd = metrics["speed"]
-                                strk = metrics["stroke"]
-                                dps = metrics["dps"]
-                                
-                                prev_speed = hist["speeds"][-2] if len(hist["speeds"]) > 1 else spd
+                                speed_series = pd.Series(hist["speeds"]).rolling(window=SMOOTH_WINDOW, min_periods=1).mean()
+                                spd = speed_series.iloc[-1]
+                                prev_speed = speed_series.iloc[-(FRAMES_PER_UPDATE + 1)] if len(speed_series) > FRAMES_PER_UPDATE else spd
                                 speed_delta = spd - prev_speed
+                                
+                                strk = pd.Series(hist["strokes"]).rolling(window=SMOOTH_WINDOW, min_periods=1).mean().iloc[-1]
+                                dps = pd.Series(hist["dps"]).rolling(window=SMOOTH_WINDOW, min_periods=1).mean().iloc[-1]
                                 
                                 chart_df = pd.DataFrame({"time": hist["times"], "speed": hist["speeds"]})
                                 chart_df["speed"] = chart_df["speed"].rolling(window=SMOOTH_WINDOW, min_periods=1).mean()
@@ -160,8 +167,8 @@ def render_coach_view():
                                                 <div style="font-weight:600;">{dps:.2f} m</div>
                                             </div>
                                             <div>
-                                                <div class="small-label" style="font-size:0.7rem;">Stroke Count</div>
-                                                <div style="font-weight:600;">{strk}</div>
+                                                <div class="small-label" style="font-size:0.7rem;">Stroke Rate (SPM)</div>
+                                                <div style="font-weight:600;">{strk:.1f}</div>
                                             </div>
                                         </div>
                                     </div>

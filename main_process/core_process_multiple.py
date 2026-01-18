@@ -183,7 +183,7 @@ class MainCalculation:
             # count stroke
             start_time = time.perf_counter()
             if len(self.frame_data_list) >= TIME_WINDOW_STROKE:
-                frame_data.stroke_count_list = []
+                frame_data.stroke_rate_list = []
                 for swimmer_id in frame_data.swimmer_id_list:
                     temp_frame_data_list = []
                     for j in range(len(self.frame_data_list)-1, len(self.frame_data_list)-TIME_WINDOW_STROKE-1, -1):
@@ -191,12 +191,12 @@ class MainCalculation:
                             idx = np.where(np.array(self.frame_data_list[j].swimmer_id_list) == swimmer_id)[0][0]
                             temp_frame_data_list.append(self.frame_data_list[j].skeleton_list[idx])
                     if temp_frame_data_list:
-                        strk_count = self.stroke_process.count_stroke(np.array(temp_frame_data_list))
-                        frame_data.stroke_count_list.append(strk_count)
+                        stroke_rate = self.stroke_process.count_stroke(np.array(temp_frame_data_list))
+                        frame_data.stroke_rate_list.append(stroke_rate)
                     else:
-                        frame_data.stroke_count_list.append(0)
+                        frame_data.stroke_rate_list.append(0)
             else:
-                frame_data.stroke_count_list = [0] * len(frame_data.swimmer_id_list)
+                frame_data.stroke_rate_list = [0] * len(frame_data.swimmer_id_list)
             frame_data.count_stroke_time = time.perf_counter() - start_time
 
                         
@@ -263,8 +263,8 @@ class MainCalculation:
                 frame_data.distance_per_stroke_list = []
                 for i in range(len(frame_data.swimmer_id_list)):
                     distance_swum = frame_data.speed_m_list[i] 
-                    stroke_count = frame_data.stroke_count_list[i]
-                    distance_per_stroke = distance_swum/stroke_count * 60 if stroke_count != 0 else 0
+                    stroke_rate = frame_data.stroke_rate_list[i]
+                    distance_per_stroke = distance_swum/stroke_rate * 60 if stroke_rate != 0 else 0
                     frame_data.distance_per_stroke_list.append(round(distance_per_stroke,2))
 
             else:
@@ -294,7 +294,7 @@ class MainCalculation:
                 frame_data.speed_px_list = self.frame_data_list[-1].speed_px_list.copy()
                 frame_data.speed_pct_change_list = self.frame_data_list[-1].speed_pct_change_list.copy()
                 frame_data.distance_per_stroke_list = self.frame_data_list[-1].distance_per_stroke_list.copy()
-                frame_data.stroke_count_list = self.frame_data_list[-1].stroke_count_list.copy()
+                frame_data.stroke_rate_list = self.frame_data_list[-1].stroke_rate_list.copy()
 
         self.prev_frame = frame
         
@@ -336,10 +336,10 @@ class MainCalculation:
 
             skel = frame_data.skeleton_list[i]
             spd = frame_data.speed_m_list[i] 
-            stroke_count = frame_data.stroke_count_list[i]
+            stroke_rate = frame_data.stroke_rate_list[i]
             distance_per_stroke = frame_data.distance_per_stroke_list[i]
 
-            annotated_txt = f'ID:{swimmer_id}, {spd:.2f}m/s, {stroke_count} spm, {distance_per_stroke} dps'
+            annotated_txt = f'ID:{swimmer_id}, {spd:.2f}m/s, {stroke_rate} spm, {distance_per_stroke} dps'
             annotated_frame = write_texts(annotated_frame, [annotated_txt], 10, 
                                           org=(int(skel[0][0]), int(skel[0][1])),
                                           font_scale=0.5, color=self.RANDOM_COLORS[swimmer_id%len(self.RANDOM_COLORS)].tolist()

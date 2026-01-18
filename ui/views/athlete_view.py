@@ -6,7 +6,7 @@ leaderboard_df = pd.DataFrame(
         "Athlete #": [101, 102, 103, 104, 105, 106],
         "Lane": [1, 2, 3, 4, 5, 6],
         "Speed (m/s)": [2.05, 1.98, 1.96, 1.92, 1.90, 1.85],
-        "Stroke Count": [30, 32, 33, 35, 36, 38],
+        "Stroke Rate (SPM)": [30, 32, 33, 35, 36, 38],
         "DPS (m)": [2.4, 2.3, 2.2, 2.0, 1.9, 1.8],
         "Swim Time (s)": [24.2, 25.1, 25.5, 26.8, 27.0, 28.5],
     }
@@ -24,13 +24,13 @@ def render_athlete_view():
     # Dropdown for ranking
     rank_metric = st.selectbox(
         "Rank by:",
-        ["Speed", "Stroke Count", "Distance Per Stroke", "Swim Time"]
+        ["Speed", "Stroke Rate", "Distance Per Stroke", "Swim Time"]
     )
 
     # Map selection to column name and sort order (True=Ascending/Lower is better, False=Descending/Higher is better)
     metric_map = {
         "Speed": ("Speed (m/s)", False),
-        "Stroke Count": ("Stroke Count", True),
+        "Stroke Rate": ("Stroke Rate (SPM)", True),
         "Distance Per Stroke": ("DPS (m)", False),
         "Swim Time": ("Swim Time (s)", True)
     }

@@ -235,8 +235,8 @@ class MainCalculation:
                 updated_speed = True
 
                 distance_swum = frame_data.speed_m 
-                stroke_count = frame_data.stroke_count
-                distance_per_stroke = distance_swum/stroke_count * 60 if stroke_count != 0 else 0
+                stroke_rate = frame_data.stroke_count
+                distance_per_stroke = distance_swum/stroke_rate * 60 if stroke_rate != 0 else 0
                 frame_data.distance_per_stroke = round(distance_per_stroke,2)
 
                 frame_data.speed_calculation_time = time.perf_counter() - start_time

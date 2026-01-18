@@ -179,7 +179,7 @@ class MainCalculation:
             # count stroke
             start_time = time.perf_counter()
             if len(self.frame_data_list) >= TIME_WINDOW_STROKE:
-                frame_data.stroke_count_list = []
+                frame_data.stroke_rate_list = []
                 for swimmer_id in frame_data.swimmer_id_list:
                     temp_frame_data_list = []
                     for j in range(len(self.frame_data_list)-1, len(self.frame_data_list)-TIME_WINDOW_STROKE-1, -1):
@@ -189,11 +189,11 @@ class MainCalculation:
                             continue
                         temp_frame_data_list.append(self.frame_data_list[j].skeleton_list[idx])
                     if temp_frame_data_list:
-                        strk_count = self.stroke_process.count_stroke(temp_frame_data_list)
+                        stroke_rate = self.stroke_process.count_stroke(temp_frame_data_list)
                     else:
-                        strk_count = 0
+                        stroke_rate = 0
                     
-                    if strk_count == 0 and len(self.frame_data_list) > 0:
+                    if stroke_rate == 0 and len(self.frame_data_list) > 0:
                         prev_ids = self.frame_data_list[-1].swimmer_id_list
                         if isinstance(prev_ids, torch.Tensor): prev_ids = prev_ids.tolist()
                         elif isinstance(prev_ids, np.ndarray): prev_ids = prev_ids.tolist()
@@ -201,11 +201,11 @@ class MainCalculation:
                         s_id = int(swimmer_id)
                         if s_id in prev_ids:
                             idx = prev_ids.index(s_id)
-                            strk_count = self.frame_data_list[-1].stroke_count_list[idx]
-                    frame_data.stroke_count_list.append(strk_count)
+                            stroke_rate = self.frame_data_list[-1].stroke_rate_list[idx]
+                    frame_data.stroke_rate_list.append(stroke_rate)
             else:
-                frame_data.stroke_count_list = [0] * len(frame_data.swimmer_id_list)
-            # frame_data.stroke_count_list = [0] * len(frame_data.swimmer_id_list)
+                frame_data.stroke_rate_list = [0] * len(frame_data.swimmer_id_list)
+            # frame_data.stroke_rate_list = [0] * len(frame_data.swimmer_id_list)
 
             frame_data.count_stroke_time = time.perf_counter() - start_time
 
@@ -269,8 +269,8 @@ class MainCalculation:
             frame_data.distance_per_stroke_list = []
             for i in range(len(frame_data.swimmer_id_list)):
                 distance_swum = frame_data.speed_m_list[i] 
-                stroke_count = frame_data.stroke_count_list[i]
-                distance_per_stroke = distance_swum/stroke_count * 60 if stroke_count != 0 else 0
+                stroke_rate = frame_data.stroke_rate_list[i]
+                distance_per_stroke = distance_swum/stroke_rate * 60 if stroke_rate != 0 else 0
                 frame_data.distance_per_stroke_list.append(round(distance_per_stroke,2))
 
         else:
@@ -282,7 +282,7 @@ class MainCalculation:
                 frame_data.speed_px_list = self.frame_data_list[-1].speed_px_list.copy()
                 frame_data.speed_pct_change_list = self.frame_data_list[-1].speed_pct_change_list.copy()
                 frame_data.distance_per_stroke_list = self.frame_data_list[-1].distance_per_stroke_list.copy()
-                frame_data.stroke_count_list = self.frame_data_list[-1].stroke_count_list.copy()
+                frame_data.stroke_rate_list = self.frame_data_list[-1].stroke_rate_list.copy()
 
         if torch.is_tensor(frame_data.skeleton_list):
             frame_data.skeleton_list = frame_data.skeleton_list.cpu().numpy().tolist()
