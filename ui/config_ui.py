@@ -1,4 +1,4 @@
-# Constants for UI rendering
+# Coach View UI Configuration
 UI_FPS = 30
 CHART_UPDATE_INTERVAL = 1 # seconds
 FRAMES_PER_UPDATE = UI_FPS * CHART_UPDATE_INTERVAL
@@ -8,3 +8,8 @@ SMOOTH_WINDOW = 10
 NUM_CHARTS = 3
 
 VIDEO_TARGET_HEIGHT = 300
+
+
+# Athlete View UI Configuration
+CELL_FONT_SIZE = '2.5rem'
+HEADER_FONT_SIZE = '2.0rem'
