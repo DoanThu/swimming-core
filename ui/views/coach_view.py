@@ -6,7 +6,7 @@ import altair as alt
 import traceback
 from ui.shared_state import get_shared_metrics, get_stream_manager
 from postprocess.const import FrameDataConst
-from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS
+from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT
 
 
 def render_coach_view():
@@ -25,9 +25,7 @@ def render_coach_view():
         c_tog, c_num = st.columns([1, 1])
         with c_tog: show_skeletons = st.toggle("Show Skeletons", value=True)
         with c_num: num_lanes = st.number_input("Lanes", min_value=1, max_value=3, value=3)
-        st.markdown('<div class="video-wrapper">', unsafe_allow_html=True)
         video_placeholder = st.empty()
-        st.markdown('</div>', unsafe_allow_html=True)
 
     # 3. Four Charts Side-by-Side
     st.markdown("### Lane Performance")
@@ -64,8 +62,15 @@ def render_coach_view():
             
             # Display Video
             frame_to_show = annotated_frame if show_skeletons else raw_frame
+            
+            # Resize video to be smaller (shorter height)
+            target_height = VIDEO_TARGET_HEIGHT
+            h, w = frame_to_show.shape[:2]
+            target_width = int(w * (target_height / h))
+            frame_to_show = cv2.resize(frame_to_show, (target_width, target_height))
+            
             frame_rgb = cv2.cvtColor(frame_to_show, cv2.COLOR_BGR2RGB)
-            video_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
+            video_placeholder.image(frame_rgb, channels="RGB", use_container_width=False)
             
             
 
