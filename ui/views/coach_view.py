@@ -22,7 +22,9 @@ def render_coach_view():
     # 2. Main Video Feed (Single)
     c_left, c_center, c_right = st.columns([1, 2, 1])
     with c_center:
-        show_skeletons = st.toggle("Show Skeletons", value=True)
+        c_tog, c_num = st.columns([1, 1])
+        with c_tog: show_skeletons = st.toggle("Show Skeletons", value=True)
+        with c_num: num_lanes = st.number_input("Lanes", min_value=1, max_value=3, value=3)
         st.markdown('<div class="video-wrapper">', unsafe_allow_html=True)
         video_placeholder = st.empty()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -80,21 +82,20 @@ def render_coach_view():
             # Determine Lanes based on position
             lane_map = {}
             if ids and bboxes and len(ids) == len(bboxes):
-                # Vertical (0): Left-to-right (sort by x at index 0)
-                # Horizontal (1): Top-down (sort by y at index 1)
-                sort_idx = 0 if orientation == FrameDataConst.VERTICAL else 1
+                h, w = raw_frame.shape[:2]
                 
-                # Create list of (uid, position_value)
-                uid_pos = []
                 for i, uid in enumerate(ids):
                     if i < len(bboxes):
-                        uid_pos.append((int(uid), bboxes[i][sort_idx]))
-                
-                # Sort by position ascending
-                uid_pos.sort(key=lambda x: x[1])
-                
-                for rank, (u, _) in enumerate(uid_pos):
-                    lane_map[u] = rank + 1
+                        box = bboxes[i]
+                        center_x = box[0] + box[2] / 2
+                        center_y = box[1] + box[3] / 2
+                        
+                        if orientation == FrameDataConst.VERTICAL:
+                            lane_map[int(uid)] = int(center_x / (w / num_lanes)) + 1
+                        else:
+                            lane_map[int(uid)] = int(center_y / (h / num_lanes)) + 1
+                        
+                        lane_map[int(uid)] = max(1, min(lane_map[int(uid)], num_lanes))
             
             st.session_state.frame_count += 1
             current_sim_time = st.session_state.frame_count / UI_FPS
@@ -135,10 +136,16 @@ def render_coach_view():
                 del st.session_state.athlete_history[uid]
 
             # Sort swimmers by number of data points (descending)
-            sorted_uids = sorted(
+            all_uids = sorted(
                 st.session_state.athlete_history.keys(),
                 key=lambda k: len(st.session_state.athlete_history[k]["times"]),
                 reverse=True
+            )
+            
+            # Take top NUM_CHARTS and sort by lane (ascending)
+            sorted_uids = sorted(
+                all_uids[:NUM_CHARTS],
+                key=lambda k: lane_map.get(k, 999)
             )
             
             if st.session_state.frame_count % FRAMES_PER_UPDATE == 0:
@@ -158,13 +165,11 @@ def render_coach_view():
                         }
                 shared_metrics.athlete_data = current_shared_data
                 shared_metrics.last_updated = current_time
+                shared_metrics.num_lanes = NUM_CHARTS
 
                 with perf_placeholder.container():
                     # Create grid based on NUM_CHARTS
-                    cols = []
-                    for _ in range((NUM_CHARTS + 2) // 3):
-                        cols.extend(st.columns(3))
-                    cols = cols[:NUM_CHARTS]
+                    cols = st.columns(NUM_CHARTS)
 
                     for slot_idx, col in enumerate(cols):
                         uid = sorted_uids[slot_idx] if slot_idx < len(sorted_uids) else None

@@ -55,7 +55,8 @@ def render_athlete_view():
         if rows:
             df = pd.DataFrame(rows)
             col_name, ascending = metric_map[rank_metric]
-            sorted_df = df.sort_values(col_name, ascending=ascending).head(NUM_CHARTS)
+            limit = getattr(shared_metrics, 'num_lanes', NUM_CHARTS)
+            sorted_df = df.sort_values(col_name, ascending=ascending).head(limit)
             
             table_placeholder.dataframe(
                 sorted_df.style.highlight_min(subset=[col_name], color='#d1fae5') if ascending else sorted_df.style.highlight_max(subset=[col_name], color='#d1fae5'),
