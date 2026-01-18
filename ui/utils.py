@@ -43,7 +43,17 @@ def receive_data(sock):
 
 CSS_STYLE = """
     <style>
-    .main { padding-top: 1rem; }
+    /* Hide Streamlit Default Header and Footer */
+    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        max-width: 99% !important;
+    }
+    h1, h2, h3 { margin-top: 0rem !important; padding-top: 0rem !important; }
     h1 { font-size: 1.8rem; font-weight: 700; }
     
     /* Coach Card Styling */
@@ -76,15 +86,6 @@ CSS_STYLE = """
         border-radius: 12px;
         font-size: 0.75rem;
         font-weight: 600;
-    }
-    
-    /* Video Container */
-    .video-wrapper {
-        background-color: #000;
-        border-radius: 12px;
-        padding: 10px;
-        margin-bottom: 20px;
-        text-align: center;
     }
     </style>
     """
