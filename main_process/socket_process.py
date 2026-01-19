@@ -219,7 +219,7 @@ def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOC
                     common_fps = [24, 30, 60, 120]
                     fps = common_fps[np.argmin([abs(i-fps) for i in common_fps])]
 
-                    calculate_frame = MainCalculationMulti(fps=fps)
+                    calculate_frame = MainCalculationMulti(fps=fps) # fps from the original video, normally 60
 
                     if not os.path.exists(os.path.dirname(out_video)):
                         os.makedirs(os.path.dirname(out_video))
@@ -289,10 +289,10 @@ def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOC
                                     output.write(annotated_frame)
 
                             process_time = time.perf_counter() - init_time
-                            if process_time > (1.0 / fps):
+                            if process_time > (FPS_RATE / fps):
                                 frames_to_skip = int(process_time * fps) - 1
                                 if frames_to_skip > 0:
-                                    logging.warning(f"Processing time {process_time*1000:.1f}ms > {1000.0/fps:.1f}ms. Skipping {frames_to_skip} frames.")
+                                    logging.warning(f"Processing time {process_time*1000:.1f}ms > {1000.0*FPS_RATE/fps:.1f}ms. Skipping {frames_to_skip} frames.")
                                     for _ in range(frames_to_skip):
                                         cap.grab()
                                         frame_idx += 1

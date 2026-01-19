@@ -64,7 +64,7 @@ class MainCalculation:
     def __init__(self, fps:int):
         self.pixel_to_meters = []
 
-        self.fps = fps # not considered FPS_RATE here
+        self.fps = fps # not considered FPS_RATE here, original fps (normally 60)
         self.frame_data_list = [] # list of FrameMultipleData
         self.prev_frame = None # store previous image 
         # self.raw_results_from_model = [] # store raw results from model for cpu processing
