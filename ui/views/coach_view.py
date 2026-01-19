@@ -9,7 +9,7 @@ import csv
 from datetime import datetime
 from ui.shared_state import get_shared_metrics, get_stream_manager
 from postprocess.const import FrameDataConst
-from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT, MIN_SPEED, MAX_SPEED, DATA_FOLDER, DATA_CSV_FILE, CSV_COLUMNS
+from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT, MIN_SPEED, MAX_SPEED, DATA_FOLDER, DATA_CSV_FILE, CSV_COLUMNS, MIN_DPS, MAX_DPS
 
 
 def render_coach_view():
@@ -29,8 +29,7 @@ def render_coach_view():
     # 2. Main Video Feed (Single)
     c_controls, c_video = st.columns([1, 4])
     with c_controls:
-        st.markdown("### Controls")
-
+        # st.markdown("### Controls")
         if "coach_session_id" not in st.session_state:
             default_session_id = "1"
             try:
@@ -65,7 +64,7 @@ def render_coach_view():
     selected_styles = []
     for i in range(NUM_CHARTS):
         with style_cols[i]:
-            selected_styles.append(st.selectbox("Style", ["Freestyle", "Backstroke", "Breaststroke", "Butterfly"], key=f"lane_style_{i}", label_visibility="collapsed"))
+            selected_styles.append(st.selectbox("Style", ["Breaststroke", "Freestyle", "Backstroke", "Butterfly"], key=f"lane_style_{i}", label_visibility="collapsed"))
 
     perf_placeholder = st.empty()
 
@@ -171,7 +170,7 @@ def render_coach_view():
                 # Update Running Stats
                 if "running_stats" not in hist:
                     hist["running_stats"] = {"speed_sum": 0, "stroke_sum": 0, "dps_sum": 0, "count": 0}
-                if MIN_SPEED <= speeds[i] <= MAX_SPEED:
+                if MIN_SPEED <= speeds[i] <= MAX_SPEED and MIN_DPS <= dps_list[i] <= MAX_DPS:
                     hist["running_stats"]["speed_sum"] += speeds[i]
                     hist["running_stats"]["stroke_sum"] += strokes[i]
                     hist["running_stats"]["dps_sum"] += dps_list[i]
@@ -293,7 +292,7 @@ def render_coach_view():
                                     st.markdown(f"""
                                     <div class="metric-card">
                                         <div style="margin-bottom:10px;">
-                                            <span style="font-weight:bold; font-size: 1.2rem;">ID {uid} - Lane {lane_num}</span>
+                                            <span style="font-weight:bold; font-size: 1.5rem;">ID {uid} - Lane {lane_num}</span>
                                         </div>
                                         <div style="display:flex; justify-content: space-between; align-items: center;">
                                             <div>
@@ -305,12 +304,12 @@ def render_coach_view():
                                             </div>
                                             <div style="text-align: right;">
                                                 <div style="margin-bottom: 8px;">
-                                                    <div class="small-label" style="font-size:0.7rem;">SPM</div>
-                                                    <div style="font-weight:600; font-size: 1.1rem;">{strk:.1f}</div>
+                                                    <div class="small-label" style="font-size:0.9rem;">SPM</div>
+                                                    <div style="font-weight:600; font-size: 1.4rem;">{strk:.1f}</div>
                                                 </div>
                                                 <div>
-                                                    <div class="small-label" style="font-size:0.7rem;">DPS</div>
-                                                    <div style="font-weight:600; font-size: 1.1rem;">{dps:.2f} m</div>
+                                                    <div class="small-label" style="font-size:0.9rem;">DPS</div>
+                                                    <div style="font-weight:600; font-size: 1.4rem;">{dps:.2f} m</div>
                                                 </div>
                                             </div>
                                         </div>

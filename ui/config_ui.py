@@ -9,6 +9,9 @@ NUM_CHARTS = 3
 VIDEO_TARGET_HEIGHT = 550
 MIN_SPEED = 0.5 # m/s
 MAX_SPEED = 2.5 # m/s
+MIN_DPS = 0.9 # meters
+MAX_DPS = 2.4 # meters
+
 DATA_FOLDER = "ui/data"
 DATA_CSV_FILE = "swimming_session_data.csv"
 
