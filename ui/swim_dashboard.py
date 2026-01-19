@@ -10,6 +10,7 @@ from ui.utils import CSS_STYLE
 from ui.views.landing_view import render_landing_view
 from ui.views.coach_view import render_coach_view
 from ui.views.athlete_view import render_athlete_view
+from ui.views.individual_view import render_individual_view
 
 st.set_page_config(page_title="Swim Performance Dashboard", layout="wide")
 
@@ -30,3 +31,5 @@ elif st.session_state.page == "coach":
     render_coach_view()
 elif st.session_state.page == "athlete":
     render_athlete_view()
+elif st.session_state.page == "individual":
+    render_individual_view()

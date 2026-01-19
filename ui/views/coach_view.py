@@ -4,9 +4,12 @@ import cv2
 import pandas as pd
 import altair as alt
 import traceback
+import os
+import csv
+from datetime import datetime
 from ui.shared_state import get_shared_metrics, get_stream_manager
 from postprocess.const import FrameDataConst
-from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT, MIN_SPEED, MAX_SPEED
+from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT, MIN_SPEED, MAX_SPEED, DATA_FOLDER
 
 
 def render_coach_view():
@@ -27,6 +30,29 @@ def render_coach_view():
     c_controls, c_video = st.columns([1, 4])
     with c_controls:
         st.markdown("### Controls")
+
+        if "coach_session_id" not in st.session_state:
+            default_session_id = "1"
+            try:
+                file_path = os.path.join(DATA_FOLDER, "swimming_session_data.csv")
+                if os.path.exists(file_path):
+                    df = pd.read_csv(file_path)
+                    if "SessionID" in df.columns and not df.empty:
+                        max_val = pd.to_numeric(df["SessionID"], errors='coerce').max()
+                        if pd.notna(max_val):
+                            default_session_id = str(int(max_val) + 1)
+            except Exception:
+                pass
+            st.session_state.coach_session_id = default_session_id
+
+        c_sess, c_save = st.columns([2, 1])
+        with c_sess:
+            session_id = st.text_input("Session ID", value=st.session_state.coach_session_id)
+            st.session_state.coach_session_id = session_id
+        with c_save:
+            st.write("") # Spacer for vertical alignment
+            st.write("")
+            if st.button("Save"): st.toast(f"Saving data for session {session_id}...")
         show_skeletons = st.toggle("Show Skeletons", value=True)
         num_lanes = st.number_input("Lanes", min_value=1, max_value=3, value=3)
         target_height = st.slider("Video Height", min_value=100, max_value=800, value=VIDEO_TARGET_HEIGHT)
@@ -214,6 +240,31 @@ def render_coach_view():
                 shared_metrics.athlete_data = current_shared_data
                 shared_metrics.last_updated = current_time
                 shared_metrics.num_lanes = NUM_CHARTS
+
+                # --- Save Data to CSV (Every Second) ---
+                try:
+                    save_dir = DATA_FOLDER
+                    if not os.path.exists(save_dir):
+                        os.makedirs(save_dir)
+                    file_path = os.path.join(save_dir, "swimming_session_data.csv")
+                    file_exists = os.path.isfile(file_path)
+
+                    with open(file_path, mode='a', newline='') as f:
+                        writer = csv.writer(f)
+                        if not file_exists:
+                            writer.writerow(["Date", "Time", "SessionID", "Lane", "AvgSpeed", "AvgStrokeRate", "AvgDPS"])
+                        
+                        now = datetime.now()
+                        date_str = now.strftime("%Y-%m-%d")
+                        time_str = now.strftime("%H:%M:%S")
+                        
+                        for uid, metrics in current_shared_data.items():
+                            writer.writerow([
+                                date_str, time_str, session_id, metrics['lane'],
+                                round(metrics['avg_speed'], 2), round(metrics['avg_stroke_rate'], 1), round(metrics['avg_dps'], 2)
+                            ])
+                except Exception as e:
+                    print(f"Error saving session data: {e}")
 
                 with perf_placeholder.container():
                     # Create grid based on NUM_CHARTS

@@ -6,9 +6,10 @@ MAX_HISTORY_FRAMES = UI_FPS * 10 # Keep 10 seconds of history
 TIMEOUT = 5.0 # seconds before considering a swimmer inactive
 SMOOTH_WINDOW = 10
 NUM_CHARTS = 3
-VIDEO_TARGET_HEIGHT = 800
+VIDEO_TARGET_HEIGHT = 550
 MIN_SPEED = 0.5 # m/s
 MAX_SPEED = 2.5 # m/s
+DATA_FOLDER = "data"
 
 
 # Athlete View UI Configuration
