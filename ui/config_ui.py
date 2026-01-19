@@ -9,7 +9,19 @@ NUM_CHARTS = 3
 VIDEO_TARGET_HEIGHT = 550
 MIN_SPEED = 0.5 # m/s
 MAX_SPEED = 2.5 # m/s
-DATA_FOLDER = "data"
+DATA_FOLDER = "ui/data"
+DATA_CSV_FILE = "swimming_session_data.csv"
+
+# CSV Column Names
+CSV_COLUMNS = [
+    "Date",           # Date of the session
+    "Time",           # Time of the session
+    "SessionID",      # Session identifier
+    "Lane",           # Lane number
+    "AvgSpeed",       # Average speed in m/s
+    "AvgStrokeRate",  # Average stroke rate in SPM (strokes per minute)
+    "AvgDPS"          # Average distance per stroke in meters
+]
 
 
 # Athlete View UI Configuration

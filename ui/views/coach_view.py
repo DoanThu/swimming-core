@@ -9,7 +9,7 @@ import csv
 from datetime import datetime
 from ui.shared_state import get_shared_metrics, get_stream_manager
 from postprocess.const import FrameDataConst
-from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT, MIN_SPEED, MAX_SPEED, DATA_FOLDER
+from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT, MIN_SPEED, MAX_SPEED, DATA_FOLDER, DATA_CSV_FILE, CSV_COLUMNS
 
 
 def render_coach_view():
@@ -34,7 +34,7 @@ def render_coach_view():
         if "coach_session_id" not in st.session_state:
             default_session_id = "1"
             try:
-                file_path = os.path.join(DATA_FOLDER, "swimming_session_data.csv")
+                file_path = os.path.join(DATA_FOLDER, DATA_CSV_FILE)
                 if os.path.exists(file_path):
                     df = pd.read_csv(file_path)
                     if "SessionID" in df.columns and not df.empty:
@@ -246,13 +246,13 @@ def render_coach_view():
                     save_dir = DATA_FOLDER
                     if not os.path.exists(save_dir):
                         os.makedirs(save_dir)
-                    file_path = os.path.join(save_dir, "swimming_session_data.csv")
+                    file_path = os.path.join(save_dir, DATA_CSV_FILE)
                     file_exists = os.path.isfile(file_path)
 
                     with open(file_path, mode='a', newline='') as f:
                         writer = csv.writer(f)
                         if not file_exists:
-                            writer.writerow(["Date", "Time", "SessionID", "Lane", "AvgSpeed", "AvgStrokeRate", "AvgDPS"])
+                            writer.writerow(CSV_COLUMNS)
                         
                         now = datetime.now()
                         date_str = now.strftime("%Y-%m-%d")
