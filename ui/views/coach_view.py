@@ -22,9 +22,10 @@ def render_coach_view():
     # 2. Main Video Feed (Single)
     c_left, c_center, c_right = st.columns([1, 2, 1])
     with c_center:
-        c_tog, c_num = st.columns([1, 1])
+        c_tog, c_num, c_slider = st.columns([1, 1, 2])
         with c_tog: show_skeletons = st.toggle("Show Skeletons", value=True)
         with c_num: num_lanes = st.number_input("Lanes", min_value=1, max_value=3, value=3)
+        with c_slider: target_height = st.slider("Video Height", min_value=100, max_value=800, value=VIDEO_TARGET_HEIGHT)
         video_placeholder = st.empty()
 
     # 3. Four Charts Side-by-Side
@@ -64,7 +65,6 @@ def render_coach_view():
             frame_to_show = annotated_frame if show_skeletons else raw_frame
             
             # Resize video to be smaller (shorter height)
-            target_height = VIDEO_TARGET_HEIGHT
             h, w = frame_to_show.shape[:2]
             target_width = int(w * (target_height / h))
             frame_to_show = cv2.resize(frame_to_show, (target_width, target_height))
