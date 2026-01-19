@@ -13,20 +13,6 @@ def render_athlete_view():
     with c2:
         st.subheader("Session Leaderboard")
 
-    # Dropdown for ranking
-    rank_metric = st.selectbox(
-        "Rank by:",
-        ["Average Speed", "Average Stroke Rate", "Average Distance Per Stroke"]
-    )
-
-    # Map selection to column name and sort order (True=Ascending/Lower is better, False=Descending/Higher is better)
-    metric_map = {
-        "Average Speed": ("Avg Speed (m/s)", False),
-        "Average Stroke Rate": ("Avg Stroke Rate (SPM)", False),
-        "Average Distance Per Stroke": ("Avg DPS (m)", False)
-    }
-
-    st.markdown(f"### Top {rank_metric}")
     table_placeholder = st.empty()
     st.caption("Live ranking updates based on video data.")
 
@@ -43,7 +29,6 @@ def render_athlete_view():
         rows = []
         for uid, metrics in data.items():
             rows.append({
-                "Athlete #": uid,
                 "Lane": metrics["lane"],
                 "Avg Speed (m/s)": round(metrics.get("avg_speed", 0), 2),
                 "Avg Stroke Rate (SPM)": round(metrics.get("avg_stroke_rate", 0), 1),
@@ -52,21 +37,16 @@ def render_athlete_view():
         
         if rows:
             df = pd.DataFrame(rows)
-            col_name, ascending = metric_map[rank_metric]
-            limit = getattr(shared_metrics, 'num_lanes', NUM_CHARTS)
-            sorted_df = df.sort_values(col_name, ascending=ascending).head(limit)
+            sorted_df = df.sort_values("Lane")
             
             # Use HTML rendering for bigger text and exact row count
             styler = sorted_df.style.format(precision=2)
-            if ascending:
-                styler = styler.highlight_min(subset=[col_name], color='#d1fae5')
-            else:
-                styler = styler.highlight_max(subset=[col_name], color='#d1fae5')
+            styler = styler.highlight_max(subset=["Avg Speed (m/s)", "Avg Stroke Rate (SPM)", "Avg DPS (m)"], color='#d1fae5')
             
             # Apply styles for bigger text
             styler.set_properties(**{
                 'font-size': CELL_FONT_SIZE,
-                'padding': '12px',
+                'padding': '24px',
                 'text-align': 'center'
             })
             styler.set_table_attributes('style="width: 100%; border-collapse: collapse;"')
