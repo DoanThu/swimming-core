@@ -89,7 +89,7 @@ class TrackCallerSkeleton(TrackCaller):
     def distance_x_y(self, p1, p2):
         return (abs(p1[0]-p2[0]), abs(p1[1]-p2[1])) # x, y
 
-    def reassign_swimmer_id(self, valid_skeletons, valid_swimmer_ids, previous_skeletons_list, previous_ids_list):
+    def reassign_swimmer_id(self, valid_skeletons, valid_swimmer_ids, previous_skeletons_list, previous_ids_list, frame_orientation=FrameDataConst.HORIZONTAL):
         """_summary_
 
         Args:
@@ -103,11 +103,15 @@ class TrackCallerSkeleton(TrackCaller):
         new_id_list = []
         previous_skeletons_list = previous_skeletons_list[-self.window:]
         previous_ids_list = previous_ids_list[-self.window:]
+
+        # If Horizontal (lanes stacked vertically), Y is stable (axis 1). If Vertical, X is stable (axis 0).
+        axis = 1 if frame_orientation == FrameDataConst.HORIZONTAL else 0
+
         for i in range(len(valid_skeletons)):
             cur_skeleton = valid_skeletons[i] # 1 skeleton
             # Keep tensor on device, only use .item() for scalar values
             head_position = cur_skeleton[0] # x and y keypoint
-            threshold = max(50, abs(cur_skeleton[5,1].item() - cur_skeleton[6,1].item())) # shoulder in y axis
+            threshold = max(50, abs(cur_skeleton[5,axis].item() - cur_skeleton[6,axis].item())) # shoulder width along stable axis
             cur_id = valid_swimmer_ids[i] # 1 id
             assigned_id = -1
             for j in range(len(previous_skeletons_list)-1,-1,-1): # run backwards
@@ -116,10 +120,10 @@ class TrackCallerSkeleton(TrackCaller):
                 distance_list = [self.distance_x_y(head_position, previous_skeleton[0]) for previous_skeleton in previous_skeletons]
                 if len(distance_list) == 0: # no skeletons detected
                     continue # go backwards to find
-                argmin_idx = min(range(len(distance_list)), key=lambda k: distance_list[k][1])
-                if distance_list[argmin_idx][1] > threshold:
+                argmin_idx = min(range(len(distance_list)), key=lambda k: distance_list[k][axis])
+                if distance_list[argmin_idx][axis] > threshold:
                     continue
-                if distance_list[argmin_idx][1] <= threshold:
+                if distance_list[argmin_idx][axis] <= threshold:
                     if argmin_idx < len(previous_ids):
                         assigned_id = previous_ids[argmin_idx] # this swimmer id in the previous frame 
                         break

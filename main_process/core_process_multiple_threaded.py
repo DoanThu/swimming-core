@@ -154,7 +154,7 @@ class MainCalculation:
             valid_bboxes = [get_bbox(skel) for skel in valid_skeletons]
             start_time = time.perf_counter()
             # Keep IDs as tensors for faster processing
-            valid_swimmer_ids = self.tracker.reassign_swimmer_id_v2(valid_skeletons, valid_swimmer_ids,
+            valid_swimmer_ids = self.tracker.reassign_swimmer_id(valid_skeletons, valid_swimmer_ids,
                                                                 [getattr(_frame_data, 'skeleton_tensor', _frame_data.skeleton_list) 
                                                                  for _frame_data in self.frame_data_list[-ID_TRACKER_WINDOW:]],
                                                                 [_frame_data.swimmer_id_list for _frame_data in self.frame_data_list[-ID_TRACKER_WINDOW:]],

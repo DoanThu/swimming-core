@@ -149,6 +149,7 @@ class MainCalculation:
             valid_swimmer_ids = self.tracker.reassign_swimmer_id(valid_skeletons, valid_swimmer_ids,
                                                                  [_frame_data.skeleton_list for _frame_data in self.frame_data_list[-ID_TRACKER_WINDOW:]],
                                                                  [_frame_data.swimmer_id_list for _frame_data in self.frame_data_list[-ID_TRACKER_WINDOW:]],
+                                                                 frame_data.frame_orientation
                                                                   )
             frame_data.tracking_time = time.perf_counter() - start_time
 
