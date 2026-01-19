@@ -8,7 +8,7 @@ SMOOTH_WINDOW = 10
 NUM_CHARTS = 3
 VIDEO_TARGET_HEIGHT = 300
 MIN_SPEED = 0.5 # m/s
-MAX_SPEED = 2.0 # m/s
+MAX_SPEED = 2.5 # m/s
 
 
 # Athlete View UI Configuration

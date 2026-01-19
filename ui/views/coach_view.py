@@ -134,11 +134,12 @@ def render_coach_view():
                 # Update Running Stats
                 if "running_stats" not in hist:
                     hist["running_stats"] = {"speed_sum": 0, "stroke_sum": 0, "dps_sum": 0, "count": 0}
-                hist["running_stats"]["speed_sum"] += speeds[i]
-                hist["running_stats"]["stroke_sum"] += strokes[i]
-                hist["running_stats"]["dps_sum"] += dps_list[i]
-                hist["running_stats"]["count"] += 1
-                
+                if MIN_SPEED <= speeds[i] <= MAX_SPEED:
+                    hist["running_stats"]["speed_sum"] += speeds[i]
+                    hist["running_stats"]["stroke_sum"] += strokes[i]
+                    hist["running_stats"]["dps_sum"] += dps_list[i]
+                    hist["running_stats"]["count"] += 1
+                    
                 # Update Max Metrics
                 s_window = min(len(hist["speeds"]), SMOOTH_WINDOW)
                 if s_window > 0:
