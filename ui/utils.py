@@ -87,5 +87,16 @@ CSS_STYLE = """
         font-size: 0.75rem;
         font-weight: 600;
     }
+
+    /* Primary Button Styling */
+    button[kind="primary"] {
+        background-color: #2563eb !important;
+        border-color: #2563eb !important;
+        color: white !important;
+    }
+    button[kind="primary"]:hover {
+        background-color: #1d4ed8 !important;
+        border-color: #1d4ed8 !important;
+    }
     </style>
     """

@@ -22,7 +22,14 @@ def render_coach_view():
     with c2:
         header_c1, header_c2 = st.columns([3, 1])
         with header_c1:
-            st.subheader("SMU - SUTD - Dronaquatics")
+            lc1, lc2, lc3 = st.columns([1, 1, 5])
+            with lc1:
+                st.image("ui/static/images/smu.png", use_container_width=True)
+            with lc2:
+                st.image("ui/static/images/sutd.png", use_container_width=True)
+            with lc3:
+                st.subheader("SMU - SUTD - Dronaquatics")
+
         with header_c2:
             st.markdown("<h3 style='text-align: right;'>Coach Dashboard Live</h3>", unsafe_allow_html=True)
 
@@ -51,21 +58,15 @@ def render_coach_view():
         with c_save:
             st.write("") # Spacer for vertical alignment
             st.write("")
-            if st.button("Save"): st.toast(f"Saving data for session {session_id}...")
+            if st.button("Save", type="primary"): st.toast(f"Saving data for session {session_id}...")
         show_skeletons = st.toggle("Show Skeletons", value=True)
         num_lanes = st.number_input("Lanes", min_value=1, max_value=3, value=3)
         target_height = st.slider("Video Height", min_value=100, max_value=800, value=VIDEO_TARGET_HEIGHT)
+        selected_style = st.selectbox("Style", ["Breaststroke", "Freestyle", "Backstroke", "Butterfly"], key="session_style")
     with c_video:
         video_placeholder = st.empty()
 
     # 3. Four Charts Side-by-Side
-    # Create style selectors outside the loop to avoid duplicate key errors
-    style_cols = st.columns(NUM_CHARTS)
-    selected_styles = []
-    for i in range(NUM_CHARTS):
-        with style_cols[i]:
-            selected_styles.append(st.selectbox("Style", ["Breaststroke", "Freestyle", "Backstroke", "Butterfly"], key=f"lane_style_{i}", label_visibility="collapsed"))
-
     perf_placeholder = st.empty()
 
     if 'athlete_history' not in st.session_state:
@@ -84,6 +85,7 @@ def render_coach_view():
     last_frame_idx = -1
 
     while True:
+        # Break if page changed
         try:
             data_list = manager.get_latest_frame()
             if data_list is None:
