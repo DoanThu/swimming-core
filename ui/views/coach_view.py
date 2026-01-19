@@ -17,15 +17,20 @@ def render_coach_view():
             st.session_state.page = "landing"
             st.rerun()
     with c2:
-        st.subheader("SMU - SUTD - Dronaquatics")
+        header_c1, header_c2 = st.columns([3, 1])
+        with header_c1:
+            st.subheader("SMU - SUTD - Dronaquatics")
+        with header_c2:
+            st.markdown("<h3 style='text-align: right;'>Coach Dashboard Live</h3>", unsafe_allow_html=True)
 
     # 2. Main Video Feed (Single)
-    c_left, c_center, c_right = st.columns([1, 2, 1])
-    with c_center:
-        c_tog, c_num, c_slider = st.columns([1, 1, 2])
-        with c_tog: show_skeletons = st.toggle("Show Skeletons", value=True)
-        with c_num: num_lanes = st.number_input("Lanes", min_value=1, max_value=3, value=3)
-        with c_slider: target_height = st.slider("Video Height", min_value=100, max_value=800, value=VIDEO_TARGET_HEIGHT)
+    c_controls, c_video = st.columns([1, 4])
+    with c_controls:
+        st.markdown("### Controls")
+        show_skeletons = st.toggle("Show Skeletons", value=True)
+        num_lanes = st.number_input("Lanes", min_value=1, max_value=3, value=3)
+        target_height = st.slider("Video Height", min_value=100, max_value=800, value=VIDEO_TARGET_HEIGHT)
+    with c_video:
         video_placeholder = st.empty()
 
     # 3. Four Charts Side-by-Side
