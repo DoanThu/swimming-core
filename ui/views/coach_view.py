@@ -17,7 +17,7 @@ def render_coach_view():
             st.session_state.page = "landing"
             st.rerun()
     with c2:
-        st.subheader("Coach Dashboard: Live Monitor")
+        st.subheader("SMU - SUTD - Dronaquatics")
 
     # 2. Main Video Feed (Single)
     c_left, c_center, c_right = st.columns([1, 2, 1])
@@ -29,7 +29,13 @@ def render_coach_view():
         video_placeholder = st.empty()
 
     # 3. Four Charts Side-by-Side
-    st.markdown("### Lane Performance")
+    # Create style selectors outside the loop to avoid duplicate key errors
+    style_cols = st.columns(NUM_CHARTS)
+    selected_styles = []
+    for i in range(NUM_CHARTS):
+        with style_cols[i]:
+            selected_styles.append(st.selectbox("Style", ["Freestyle", "Backstroke", "Breaststroke", "Butterfly"], key=f"lane_style_{i}", label_visibility="collapsed"))
+
     perf_placeholder = st.empty()
 
     if 'athlete_history' not in st.session_state:
@@ -230,23 +236,26 @@ def render_coach_view():
                                 with st.container():
                                     st.markdown(f"""
                                     <div class="metric-card">
-                                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                                            <span style="font-weight:bold;">ID {uid} - Lane {lane_num}</span>
-                                            <span class="stroke-badge">Freestyle</span>
+                                        <div style="margin-bottom:10px;">
+                                            <span style="font-weight:bold; font-size: 1.2rem;">ID {uid} - Lane {lane_num}</span>
                                         </div>
-                                        <div class="small-label">Current Speed</div>
-                                        <div class="big-metric">{spd:.2f} m/s</div>
-                                        <div style="color: {'green' if speed_delta >= 0 else 'red'}; font-size: 0.9rem; margin-bottom:15px;">
-                                            {speed_delta:+.2f} vs prev
-                                        </div>
-                                        <div style="display:flex; justify-content:space-around; margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
+                                        <div style="display:flex; justify-content: space-between; align-items: center;">
                                             <div>
-                                                <div class="small-label" style="font-size:0.7rem;">DPS</div>
-                                                <div style="font-weight:600;">{dps:.2f} m</div>
+                                                <div class="small-label">Current Speed</div>
+                                                <div class="big-metric">{spd:.2f} m/s</div>
+                                                <div style="color: {'green' if speed_delta >= 0 else 'red'}; font-size: 0.9rem;">
+                                                    {speed_delta:+.2f} vs prev
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div class="small-label" style="font-size:0.7rem;">Stroke Rate (SPM)</div>
-                                                <div style="font-weight:600;">{strk:.1f}</div>
+                                            <div style="text-align: right;">
+                                                <div style="margin-bottom: 8px;">
+                                                    <div class="small-label" style="font-size:0.7rem;">SPM</div>
+                                                    <div style="font-weight:600; font-size: 1.1rem;">{strk:.1f}</div>
+                                                </div>
+                                                <div>
+                                                    <div class="small-label" style="font-size:0.7rem;">DPS</div>
+                                                    <div style="font-weight:600; font-size: 1.1rem;">{dps:.2f} m</div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -255,8 +264,8 @@ def render_coach_view():
                                     color_hex = ["#2563eb", "#16a34a", "#dc2626", "#d97706"][uid % 4]
                                     chart = alt.Chart(chart_df).mark_line(color=color_hex).encode(
                                         x=alt.X('time', title='Time (s)'),
-                                        y=alt.Y('speed', title='Speed (m/s)', scale=alt.Scale(domain=[0, 3.0]))
-                                    ).properties(height=150)
+                                        y=alt.Y('speed', title='Speed (m/s)', scale=alt.Scale(domain=[0, 4.0]))
+                                    ).properties(height=150).interactive(bind_y=False)
                                     st.altair_chart(chart, use_container_width=True)
                             else:
                                 # Empty slot placeholder

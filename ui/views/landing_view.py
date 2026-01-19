@@ -11,13 +11,13 @@ def render_landing_view():
     _, col1, col2, _ = st.columns([1, 1, 1, 1])
 
     with col1:
-        if st.button("Coach View", use_container_width=True):
+        # if st.button("Coach View", use_container_width=True):
+        if st.button("Coach View", width='stretch'):
             st.session_state.page = "coach"
             st.rerun()
-        st.caption("Live video + 4-lane analysis")
 
     with col2:
-        if st.button("Athlete View", use_container_width=True):
+        # if st.button("Athlete View", use_container_width=True):
+        if st.button("Athlete View", width='stretch'):
             st.session_state.page = "athlete"
             st.rerun()
-        st.caption("Leaderboard & Rankings")

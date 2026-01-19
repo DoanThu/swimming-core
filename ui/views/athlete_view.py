@@ -11,7 +11,7 @@ def render_athlete_view():
             st.session_state.page = "landing"
             st.rerun()
     with c2:
-        st.subheader("Session Leaderboard")
+        st.markdown(f"<h1 style='font-size: {HEADER_FONT_SIZE}'>Session Leaderboard</h1>", unsafe_allow_html=True)
 
     table_placeholder = st.empty()
     st.caption("Live ranking updates based on video data.")
