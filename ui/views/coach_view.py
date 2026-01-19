@@ -6,7 +6,7 @@ import altair as alt
 import traceback
 from ui.shared_state import get_shared_metrics, get_stream_manager
 from postprocess.const import FrameDataConst
-from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT
+from ui.config_ui import UI_FPS, FRAMES_PER_UPDATE, MAX_HISTORY_FRAMES, TIMEOUT, SMOOTH_WINDOW, NUM_CHARTS, VIDEO_TARGET_HEIGHT, MIN_SPEED, MAX_SPEED
 
 
 def render_coach_view():
@@ -115,7 +115,9 @@ def render_coach_view():
                     st.session_state.athlete_history[uid] = {
                         "times": [], "speeds": [], "strokes": [], "dps": [], 
                         "last_seen": current_time, "first_seen": current_time,
-                        "metrics": {"speed": 0, "stroke": 0, "dps": 0}
+                        "metrics": {"speed": 0, "stroke": 0, "dps": 0},
+                        "max_metrics": {"speed": 0, "stroke": 0, "dps": 0},
+                        "running_stats": {"speed_sum": 0, "stroke_sum": 0, "dps_sum": 0, "count": 0}
                     }
                 hist = st.session_state.athlete_history[uid]
                 hist["times"].append(current_sim_time)
@@ -128,6 +130,28 @@ def render_coach_view():
                     "stroke": strokes[i],
                     "dps": dps_list[i]
                 }
+                
+                # Update Running Stats
+                if "running_stats" not in hist:
+                    hist["running_stats"] = {"speed_sum": 0, "stroke_sum": 0, "dps_sum": 0, "count": 0}
+                hist["running_stats"]["speed_sum"] += speeds[i]
+                hist["running_stats"]["stroke_sum"] += strokes[i]
+                hist["running_stats"]["dps_sum"] += dps_list[i]
+                hist["running_stats"]["count"] += 1
+                
+                # Update Max Metrics
+                s_window = min(len(hist["speeds"]), SMOOTH_WINDOW)
+                if s_window > 0:
+                    curr_smooth_speed = sum(hist["speeds"][-s_window:]) / s_window
+                    curr_smooth_stroke = sum(hist["strokes"][-s_window:]) / s_window
+                    curr_smooth_dps = sum(hist["dps"][-s_window:]) / s_window
+                    
+                    if "max_metrics" not in hist: hist["max_metrics"] = {"speed": 0, "stroke": 0, "dps": 0}
+                    if MIN_SPEED <= curr_smooth_speed <= MAX_SPEED:
+                        hist["max_metrics"]["speed"] = max(hist["max_metrics"]["speed"], curr_smooth_speed)
+                        hist["max_metrics"]["stroke"] = max(hist["max_metrics"]["stroke"], curr_smooth_stroke)
+                        hist["max_metrics"]["dps"] = max(hist["max_metrics"]["dps"], curr_smooth_dps)
+
                 if len(hist["times"]) > MAX_HISTORY_FRAMES:
                     hist["times"] = hist["times"][-MAX_HISTORY_FRAMES:]
                     hist["speeds"] = hist["speeds"][-MAX_HISTORY_FRAMES:]
@@ -161,10 +185,17 @@ def render_coach_view():
                         hist = st.session_state.athlete_history[uid]
                         # Calculate simple averages for the leaderboard using the smoothing window
                         s_window = min(len(hist["speeds"]), SMOOTH_WINDOW)
+                        
+                        stats = hist.get("running_stats", {"speed_sum": 0, "stroke_sum": 0, "dps_sum": 0, "count": 0})
+                        cnt = stats["count"] if stats["count"] > 0 else 1
+                        
                         current_shared_data[uid] = {
                             "speed": sum(hist["speeds"][-s_window:]) / s_window if s_window > 0 else 0,
                             "stroke_rate": sum(hist["strokes"][-s_window:]) / s_window if s_window > 0 else 0,
                             "dps": sum(hist["dps"][-s_window:]) / s_window if s_window > 0 else 0,
+                            "avg_speed": stats["speed_sum"] / cnt,
+                            "avg_stroke_rate": stats["stroke_sum"] / cnt,
+                            "avg_dps": stats["dps_sum"] / cnt,
                             "swim_time": current_time - hist.get("first_seen", current_time),
                             "lane": lane_map.get(uid, (uid % 8) + 1)
                         }

@@ -16,14 +16,14 @@ def render_athlete_view():
     # Dropdown for ranking
     rank_metric = st.selectbox(
         "Rank by:",
-        ["Speed", "Stroke Rate", "Distance Per Stroke"]
+        ["Average Speed", "Average Stroke Rate", "Average Distance Per Stroke"]
     )
 
     # Map selection to column name and sort order (True=Ascending/Lower is better, False=Descending/Higher is better)
     metric_map = {
-        "Speed": ("Speed (m/s)", False),
-        "Stroke Rate": ("Stroke Rate (SPM)", True),
-        "Distance Per Stroke": ("DPS (m)", False)
+        "Average Speed": ("Avg Speed (m/s)", False),
+        "Average Stroke Rate": ("Avg Stroke Rate (SPM)", False),
+        "Average Distance Per Stroke": ("Avg DPS (m)", False)
     }
 
     st.markdown(f"### Top {rank_metric}")
@@ -45,9 +45,9 @@ def render_athlete_view():
             rows.append({
                 "Athlete #": uid,
                 "Lane": metrics["lane"],
-                "Speed (m/s)": round(metrics["speed"], 2),
-                "Stroke Rate (SPM)": round(metrics["stroke_rate"], 1),
-                "DPS (m)": round(metrics["dps"], 2)
+                "Avg Speed (m/s)": round(metrics.get("avg_speed", 0), 2),
+                "Avg Stroke Rate (SPM)": round(metrics.get("avg_stroke_rate", 0), 1),
+                "Avg DPS (m)": round(metrics.get("avg_dps", 0), 2)
             })
         
         if rows:
