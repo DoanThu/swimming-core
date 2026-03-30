@@ -148,6 +148,14 @@ def run_socket(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOCKET'],
 
 
                         else:
+                            if isinstance(DEVICE_ID, str) and os.path.exists(DEVICE_ID):
+                                logging.info('Video ended. Replaying...')
+                                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                                frame_idx = -1
+                                cur_features_list = []
+                                prev_features_list = []
+                                continue
+
                             # cap = cv2.VideoCapture(DEVICE_ID)
                             # frame_idx = -1
                             cap.release()
@@ -233,6 +241,8 @@ def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOC
 
                     while(cap.isOpened()):
                         ret, frame = cap.read()
+                        if lane_divider_bboxes is not None:
+                            print(f'len lane_divider_bboxes = {len(lane_divider_bboxes)}')
                         if ret:
                             if fx < 1 and fy < 1:
                                 frame = cv2.resize(frame, (0, 0), fx=fx, fy=fy)
@@ -300,6 +310,15 @@ def run_socket_multi(debug=False, save_csv=False, out_video=SAVE_VIDEO_PATH['SOC
                             prev_frame = frame
 
                         else:
+                            if isinstance(DEVICE_ID, str) and os.path.exists(DEVICE_ID):
+                                logging.info('Video ended. Replaying...')
+                                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                                frame_idx = -2
+                                prev_frame = None
+                                frame_keypoints = None
+                                lane_divider_bboxes = None
+                                continue
+
                             cap.release()
                             output.release()
                             clientsocket.close()
